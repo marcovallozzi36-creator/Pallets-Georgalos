@@ -720,12 +720,9 @@
               <label for="entryConcept">Concepto</label>
               <select id="entryConcept" required>
                 <option value="">Seleccionar…</option>
-                <option value="RETIRA_ARLOG">Entrega de ARLOG</option>
-                <option value="RETIRA_DESCARTABLE">Entrega descartables</option>
-                <option value="RETIRA_ROTO">Entrega rotos</option>
+                <option value="RETIRO">Retiro</option>
                 <option value="DEVOLUCION">Devolución</option>
                 <option value="COMPRA">Compra</option>
-                <option value="OTRO">Otro</option>
               </select>
             </div>
           </div>
@@ -763,6 +760,17 @@
               <select id="entryPlace"></select>
             </div>
           </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="entryUnitPrice">Precio unitario ($)</label>
+              <input type="number" id="entryUnitPrice" min="0" step="0.01" />
+              <span class="hint">
+                Obligatorio en COMPRAS. En RETIRO/DEVOLUCIÓN, si lo dejás vacío se usa el precio del tipo de pallet.
+              </span>
+            </div>
+          </div>
+
           <div class="row">
             <div class="field">
               <label for="entryRemito">N° Remito</label>
@@ -783,7 +791,7 @@
           </div>
           <div class="btn-row">
             <p class="hint" id="entryHint">
-              El dashboard traduce todo a pallets base (ARLOG sano) con precios o X a 1.
+              El dashboard traduce todo a pallets base (ARLOG sano) con precios o X a 1. Las compras no entran al circuito de trueque.
             </p>
             <div style="display:flex;gap:6px;">
               <button type="button" class="btn-ghost btn-sm" id="entryResetBtn">Limpiar</button>
@@ -858,6 +866,8 @@
               <th>Proveedor</th>
               <th>Saldo equivalente (pallet base)</th>
               <th>Estado</th>
+              <th>Compras (cant)</th>
+              <th>Compras ($)</th>
             </tr>
           </thead>
           <tbody id="dashTableBody"></tbody>
@@ -1580,6 +1590,7 @@
   const entrySaveBtn = $("entrySaveBtn");
   const entryResetBtn = $("entryResetBtn");
   const entryHint = $("entryHint");
+  const entryUnitPrice = $("entryUnitPrice");
 
   entryDate.valueAsDate = new Date();
   entryEquivMode.value = "PRICE";
@@ -1591,8 +1602,9 @@
     entryDate.valueAsDate = new Date();
     entryEquivMode.value = "PRICE";
     entryEquivRatio.value = "";
+    entryUnitPrice.value = "";
     entrySaveBtn.textContent = "Guardar movimiento";
-    entryHint.textContent = "El dashboard traduce todo a pallets base (ARLOG sano) con precios o X a 1.";
+    entryHint.textContent = "El dashboard traduce todo a pallets base (ARLOG sano) con precios o X a 1. Las compras no entran al circuito de trueque.";
   }
   entryResetBtn.addEventListener("click", resetEntryForm);
 
@@ -1637,6 +1649,12 @@
       return;
     }
 
+    const unitPrice = entryUnitPrice.value ? Number(entryUnitPrice.value) : null;
+    if (entryConcept.value === "COMPRA" && (!unitPrice || unitPrice <= 0)) {
+      alert("En COMPRAS tenés que indicar el precio unitario.");
+      return;
+    }
+
     const payload = {
       date: entryDate.value,
       direction: entryDirection.value,
@@ -1653,6 +1671,7 @@
       linkedRequestId: entryLinkedRequest.value || null,
       equivMode,
       equivRatio: equivMode === "RATIO" ? equivRatio : null,
+      unitPrice,
       updatedAt: new Date().toISOString()
     };
 
@@ -1741,9 +1760,10 @@
       entryRemito.value = en.remito || "";
       entryNotes.value = en.notes || "";
       entryLinkedRequest.value = en.linkedRequestId || "";
+      entryUnitPrice.value = en.unitPrice ?? "";
       entrySaveBtn.textContent = "Actualizar movimiento";
-      entryHint.textContent = "Editando movimiento. Al guardar se recalcula la deuda.";
-      // Cambiamos de vista a Movimientos por si estás en otra
+      entryHint.textContent = "Editando movimiento. Al guardar se recalcula la deuda. Las compras siguen fuera del circuito de trueque.";
+      // Cambiamos de vista a Movimientos
       navButtons.forEach(b => b.classList.remove("active"));
       views.forEach(v => v.classList.remove("active"));
       document.querySelector('.nav-btn[data-view="view-movimientos"]').classList.add("active");
@@ -1782,13 +1802,19 @@
   function getEntryEquivalenceFactor(en, base) {
     if (!base || !base.price) return 0;
 
+    // Las COMPRAS no entran al circuito de trueque
+    if (en.concept === "COMPRA") return 0;
+
     // Si el movimiento tiene acuerdo X a 1 → factor = 1 / X
     if (en.equivMode === "RATIO" && en.equivRatio && en.equivRatio > 0) {
       return 1 / en.equivRatio;
     }
 
-    // Si no, usamos precio del tipo vs precio base
-    const priceType = getPalletTypePrice(en.palletTypeId);
+    // Usamos precio del movimiento (si tiene) o el del tipo de pallet
+    const priceType = (en.unitPrice && en.unitPrice > 0)
+      ? en.unitPrice
+      : getPalletTypePrice(en.palletTypeId);
+
     if (!priceType || priceType <= 0) return 0;
     return priceType / base.price;
   }
@@ -1803,24 +1829,44 @@
       dashBaseName.textContent = "Sin definir";
       dashTotalSaldo.textContent = "0";
       dashHint.textContent = "Definí un pallet base (ARLOG sano) y su precio en Configuración.";
-      dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay pallet base configurado.</td></tr>`;
+      dashTableBody.innerHTML = `<tr><td colspan="5" class="empty">No hay pallet base configurado.</td></tr>`;
       return;
     }
 
     dashBaseName.textContent = `${base.name} ($${base.price.toLocaleString("es-AR")})`;
-    dashHint.textContent = "SALIDA suma deuda, ENTRADA resta, todo expresado en pallets base (ARLOG sano). Deuda redondeada a pallets enteros.";
+    dashHint.textContent = "SALIDA suma deuda, ENTRADA resta, todo expresado en pallets base (ARLOG sano). Compras fuera del circuito, pero visibles como cantidad y $.";
 
     const map = {};
     entries.forEach(en => {
+      const key = en.supplierId || "none";
+      if (!map[key]) {
+        map[key] = {
+          supplierId: key,
+          supplierName: en.supplierName || "Proveedor",
+          saldoBase: 0,
+          comprasQty: 0,
+          comprasMonto: 0
+        };
+      }
+
+      // Si es COMPRA → solo acumulamos cantidad y monto
+      if (en.concept === "COMPRA") {
+        const qty = en.qty || 0;
+        const unitPrice = (en.unitPrice && en.unitPrice > 0)
+          ? en.unitPrice
+          : getPalletTypePrice(en.palletTypeId);
+        const amount = qty * (unitPrice || 0);
+        map[key].comprasQty += qty;
+        map[key].comprasMonto += amount;
+        return;
+      }
+
+      // Resto de conceptos → circuito de trueque normal
       const factor = getEntryEquivalenceFactor(en, base);
       if (!factor) return;
       const sign = en.direction === "SALIDA" ? 1 : (en.direction === "ENTRADA" ? -1 : 0);
       if (!sign) return;
       const eq = sign * (en.qty || 0) * factor;
-      const key = en.supplierId || "none";
-      if (!map[key]) {
-        map[key] = { supplierId: key, supplierName: en.supplierName || "Proveedor", saldoBase: 0 };
-      }
       map[key].saldoBase += eq;
     });
 
@@ -1831,10 +1877,10 @@
       .sort((a, b) => (a.supplierName || "").localeCompare(b.supplierName || ""));
 
     if (filtered.length === 0) {
-      dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay movimientos con precios/equivalencias configurados.</td></tr>`;
+      dashTableBody.innerHTML = `<tr><td colspan="5" class="empty">No hay movimientos con precios/equivalencias configurados.</td></tr>`;
     } else {
       filtered.forEach(row => {
-        const saldoRounded = Math.round(row.saldoBase); // 🔢 redondeo a pallet entero
+        const saldoRounded = Math.round(row.saldoBase); // redondeo a pallet entero
         let estadoText = "";
         let estadoClass = "";
         if (saldoRounded > 0) {
@@ -1854,13 +1900,18 @@
           <td><strong>${row.supplierName}</strong></td>
           <td>${saldoRounded.toLocaleString("es-AR")}</td>
           <td><span class="${estadoClass}">${estadoText}</span></td>
+          <td>${(row.comprasQty || 0).toLocaleString("es-AR")}</td>
+          <td>$${(row.comprasMonto || 0).toLocaleString("es-AR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })}</td>
         `;
         dashTableBody.appendChild(tr);
       });
     }
 
     const totalSaldo = list.reduce((acc, row) => acc + (row.saldoBase || 0), 0);
-    const totalRounded = Math.round(totalSaldo); // 🔢 también entero global
+    const totalRounded = Math.round(totalSaldo);
     dashTotalSaldo.textContent = totalRounded.toLocaleString("es-AR");
     dashTotalSaldo.style.color =
       totalRounded > 0 ? "#eab308" :
@@ -1903,7 +1954,7 @@
       const factor = getEntryEquivalenceFactor(en, base);
       const sign = en.direction === "SALIDA" ? 1 : (en.direction === "ENTRADA" ? -1 : 0);
       const eqRaw = sign * (en.qty || 0) * factor;
-      const eqRounded = Math.round(eqRaw); // 🔢 redondeado a pallet entero
+      const eqRounded = Math.round(eqRaw);
       const dirShort = en.direction === "SALIDA" ? "SALIDA" : (en.direction === "ENTRADA" ? "ENTRADA" : "-");
       const notesRemito = [en.remito, en.notes].filter(Boolean).join(" · ") || "-";
       const tr = document.createElement("tr");
