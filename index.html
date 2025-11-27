@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pallets Control · Firebase</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --accent: #22c55e;
+      --accent-soft: #dcfce7;
+      --accent-strong: #16a34a;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --danger: #ef4444;
+      --radius-lg: 16px;
+      --radius-pill: 999px;
+    }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #e5f3ff, #f9fafb);
+      color: var(--text);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 12px 20px;
+      border-bottom: 1px solid #d1d5db;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 30%, #bbf7d0, #22c55e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .logo h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .logo span.sub {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .nav-btn {
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-btn span.icon { font-size: 16px; }
+    .nav-btn.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent-strong);
+    }
+
+    main {
+      flex: 1;
+      padding: 16px;
+      max-width: 1200px;
+      margin: 0 auto 24px;
+      width: 100%;
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+      padding: 14px 16px 12px;
+      margin-bottom: 14px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .card-header h2 {
+      margin: 0;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-header span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
+      gap: 14px;
+      align-items: flex-start;
+    }
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .row-1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    @media (max-width: 800px) {
+      .row, .row-3 { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .field label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      background: #f9fafb;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      padding: 7px 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+    .field textarea {
+      min-height: 60px;
+      resize: vertical;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+      background: #ffffff;
+    }
+
+    button {
+      border-radius: var(--radius-pill);
+      border: none;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #f0fdf4;
+    }
+    .btn-ghost {
+      background: #f9fafb;
+      border: 1px solid #d1d5db;
+      color: var(--muted);
+    }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+
+    .hint { font-size: 11px; color: var(--muted); }
+    .btn-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .table th,
+    .table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+    }
+    .table th {
+      font-size: 11px;
+      color: var(--muted);
+      background: #f3f4f6;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .table tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .status { font-size: 11px; color: var(--muted); margin-top: 6px; }
+    .summary-wrapper {
+      max-height: 320px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+    .empty {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      padding: 14px 8px;
+    }
+
+    .flex-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill-info {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: #eff6ff;
+      font-size: 11px;
+      color: #1d4ed8;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 10px;
+      border: 1px solid #d4d4d4;
+    }
+    .badge-green { background: #dcfce7; border-color: #22c55e; color: #166534; }
+    .badge-red { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+    .badge-yellow { background: #fef9c3; border-color: #eab308; color: #92400e; }
+
+    .kpi-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .kpi-card {
+      background: #f9fafb;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 8px 10px;
+      min-width: 140px;
+    }
+    .kpi-card span.label {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .kpi-card span.value {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .chip-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .chip.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .filter-input input {
+      width: 100%;
+      background: #f9fafb;
+      border-radius: var(--radius-pill);
+      border: 1px solid #d1d5db;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .tag {
+      border-radius: var(--radius-pill);
+      padding: 2px 6px;
+      font-size: 10px;
+      background: #e5e7eb;
+      color: #374151;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-circle">📦</div>
+    <div>
+      <h1>Pallets Control</h1>
+      <span class="sub">Firebase · Proveedores · Solicitudes · Movimientos · Dashboard</span>
+    </div>
+  </div>
+  <nav class="nav">
+    <button class="nav-btn active" data-view="view-proveedores"><span class="icon">👥</span>Proveedores</button>
+    <button class="nav-btn" data-view="view-config"><span class="icon">⚙️</span>Configuración</button>
+    <button class="nav-btn" data-view="view-solicitudes"><span class="icon">📝</span>Solicitudes</button>
+    <button class="nav-btn" data-view="view-movimientos"><span class="icon">🔁</span>Movimientos</button>
+    <button class="nav-btn" data-view="view-dashboard"><span class="icon">📊</span>Dashboard</button>
+  </nav>
+</header>
+
+<main>
+  <!-- PROVEEDORES -->
+  <section class="view active" id="view-proveedores">
+    <div class="grid-2">
+      <section class="card">
+        <div class="card-header">
+          <h2>👤 Proveedor</h2>
+          <span>Alta / edición</span>
+        </div>
+        <form id="supplierForm">
+          <input type="hidden" id="supplierId" />
+          <div class="row">
+            <div class="field">
+              <label for="supplierName">Nombre / Razón social</label>
+              <input id="supplierName" required placeholder="Ej: Britos Logística" />
+            </div>
+            <div class="field">
+              <label for="supplierAlias">Alias interno</label>
+              <input id="supplierAlias" placeholder="Ej: BRITOS" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="supplierCuit">CUIT</label>
+              <input id="supplierCuit" placeholder="XX-XXXXXXXX-X" />
+            </div>
+            <div class="field">
+              <label for="supplierPhone">Teléfono</label>
+              <input id="supplierPhone" placeholder="Tel / WhatsApp" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="supplierEmail">Email</label>
+              <input type="email" id="supplierEmail" placeholder="contacto@proveedor.com" />
+            </div>
+            <div class="field">
+              <label for="supplierCity">Ciudad / Provincia</label>
+              <input id="supplierCity" placeholder="Ej: Río Segundo, Córdoba" />
+            </div>
+          </div>
+          <div class="row-1">
+            <div class="field">
+              <label for="supplierAddress">Dirección</label>
+              <input id="supplierAddress" placeholder="Calle, número, otros datos" />
+            </div>
+          </div>
+          <div class="row-1">
+            <div class="field">
+              <label for="supplierNotes">Notas internas</label>
+              <textarea id="supplierNotes" placeholder="Acuerdos, condiciones de pallets, etc."></textarea>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <p class="hint" id="supplierHint">Modo: alta de nuevo proveedor.</p>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn-ghost btn-sm" id="supplierResetBtn">Limpiar</button>
+              <button type="submit" class="btn-primary btn-sm" id="supplierSaveBtn">Guardar proveedor</button>
+            </div>
+          </div>
+        </form>
+        <p class="status" id="supplierStatus">Datos guardados en Firestore ✅</p>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>📋 Listado de proveedores</h2>
+          <span>Editar / eliminar (si no tiene movimientos)</span>
+        </div>
+        <div class="flex-between" style="margin-bottom:6px;">
+          <div class="hint">Total proveedores: <span id="supplierCount">0</span></div>
+          <div style="min-width:180px;">
+            <input id="supplierFilter" placeholder="Filtrar por nombre / alias…" />
+          </div>
+        </div>
+        <div class="summary-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Proveedor</th>
+                <th>CUIT</th>
+                <th>Contacto</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="supplierTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- CONFIGURACIÓN -->
+  <section class="view" id="view-config">
+    <div class="grid-2">
+      <section class="card">
+        <div class="card-header">
+          <h2>🧱 Tipos de pallet</h2>
+          <span>Precio y base de equivalencia</span>
+        </div>
+        <form id="palletTypeForm">
+          <input type="hidden" id="palletTypeId" />
+          <div class="row">
+            <div class="field">
+              <label for="palletTypeName">Tipo de pallet</label>
+              <input id="palletTypeName" placeholder="ARLOG SANO, DESCARTABLE…" />
+            </div>
+            <div class="field">
+              <label for="palletTypePrice">Precio unitario ($)</label>
+              <input id="palletTypePrice" type="number" min="0" step="0.01" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>
+                <input type="checkbox" id="palletTypeIsBase" />
+                Usar como pallet base de equivalencia
+              </label>
+              <span class="hint">Ej: ARLOG SANO como referencia</span>
+            </div>
+            <div class="field" style="align-items:flex-end;">
+              <button type="submit" class="btn-primary btn-sm" id="palletTypeSaveBtn">Guardar tipo</button>
+            </div>
+          </div>
+        </form>
+        <div class="summary-wrapper" style="margin-top:8px;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Precio</th>
+                <th>Base</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="palletTypeTableBody"></tbody>
+          </table>
+        </div>
+        <p class="status" id="palletTypeStatus">Todo se guarda en Firestore.</p>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>📍 Lugares</h2>
+          <span>Plantas, depósitos, etc.</span>
+        </div>
+        <form id="placeForm">
+          <div class="row">
+            <div class="field">
+              <label for="placeName">Lugar</label>
+              <input id="placeName" placeholder="Planta Victoria, Depósito Central…" />
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <button type="submit" class="btn-primary btn-sm">Agregar</button>
+            </div>
+          </div>
+        </form>
+        <div class="summary-wrapper" style="margin-top:8px;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Lugar</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="placeTableBody"></tbody>
+          </table>
+        </div>
+        <p class="status">Usados en solicitudes y movimientos.</p>
+      </section>
+    </div>
+  </section>
+
+  <!-- SOLICITUDES -->
+  <section class="view" id="view-solicitudes">
+    <section class="card">
+      <div class="card-header">
+        <h2>📝 Nueva solicitud</h2>
+        <span>Con número correlativo irrepetible</span>
+      </div>
+      <form id="requestForm">
+        <div class="row">
+          <div class="field">
+            <label for="requestDate">Fecha</label>
+            <input type="date" id="requestDate" required />
+          </div>
+          <div class="field">
+            <label for="requestSupplier">Proveedor</label>
+            <select id="requestSupplier" required></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="requestType">Tipo de solicitud</label>
+            <select id="requestType" required>
+              <option value="">Seleccionar…</option>
+              <option value="DEVOLUCION">Devolución de pallets</option>
+              <option value="COMPRA">Compra de pallets</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="requestDueDate">Fecha límite</label>
+            <input type="date" id="requestDueDate" />
+          </div>
+        </div>
+        <div class="row-3">
+          <div class="field">
+            <label for="requestPalletType">Tipo de pallet</label>
+            <select id="requestPalletType"></select>
+          </div>
+          <div class="field">
+            <label for="requestQty">Cantidad</label>
+            <input type="number" id="requestQty" min="1" step="1" />
+          </div>
+          <div class="field">
+            <label for="requestPlace">Lugar</label>
+            <select id="requestPlace"></select>
+          </div>
+        </div>
+        <div class="row-1">
+          <div class="field">
+            <label for="requestNotes">Notas</label>
+            <textarea id="requestNotes" placeholder="Lo que quieras dejar asentado."></textarea>
+          </div>
+        </div>
+        <div class="btn-row">
+          <p class="hint">Se numera como #0001, #0002…</p>
+          <button type="submit" class="btn-primary" id="requestSaveBtn">Guardar solicitud</button>
+        </div>
+      </form>
+      <p class="status" id="requestStatus">Guardado en Firestore.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>📨 Solicitudes</h2>
+        <span>Imprimibles / filtrables</span>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <span class="label">Pendientes</span><br />
+          <span class="value" id="reqKpiPending">0</span>
+        </div>
+        <div class="kpi-card">
+          <span class="label">Cumplidas</span><br />
+          <span class="value" id="reqKpiDone">0</span>
+        </div>
+        <div class="kpi-card">
+          <span class="label">Canceladas</span><br />
+          <span class="value" id="reqKpiCancelled">0</span>
+        </div>
+      </div>
+      <div class="flex-between" style="margin-bottom:6px;">
+        <div class="chip-group" id="requestStatusChips">
+          <div class="chip active" data-status="ALL">Todas</div>
+          <div class="chip" data-status="PENDIENTE">Pendientes</div>
+          <div class="chip" data-status="CUMPLIDA">Cumplidas</div>
+          <div class="chip" data-status="CANCELADA">Canceladas</div>
+        </div>
+        <div style="min-width:200px;" class="filter-input">
+          <input id="requestFilterSupplier" placeholder="Filtrar por proveedor…" />
+        </div>
+      </div>
+      <div class="summary-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Fecha</th>
+              <th>Proveedor</th>
+              <th>Detalle</th>
+              <th>Fecha límite</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="requestTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <!-- MOVIMIENTOS -->
+  <section class="view" id="view-movimientos">
+    <div class="grid-2">
+      <section class="card">
+        <div class="card-header">
+          <h2>🔁 Nuevo movimiento</h2>
+          <span>ENTRADA / SALIDA con equivalencias</span>
+        </div>
+        <form id="entryForm">
+          <div class="row">
+            <div class="field">
+              <label for="entryDate">Fecha</label>
+              <input type="date" id="entryDate" required />
+            </div>
+            <div class="field">
+              <label for="entryDirection">Dirección</label>
+              <select id="entryDirection" required>
+                <option value="">Seleccionar…</option>
+                <option value="SALIDA">🔼 Sale de mi stock (proveedor me debe)</option>
+                <option value="ENTRADA">🔽 Entra a mi stock (me devuelve)</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="entrySupplier">Proveedor</label>
+              <select id="entrySupplier" required></select>
+            </div>
+            <div class="field">
+              <label for="entryConcept">Concepto</label>
+              <select id="entryConcept" required>
+                <option value="">Seleccionar…</option>
+                <option value="RETIRA_ARLOG">Entrega de ARLOG</option>
+                <option value="RETIRA_DESCARTABLE">Entrega descartables</option>
+                <option value="RETIRA_ROTO">Entrega rotos</option>
+                <option value="DEVOLUCION">Devolución</option>
+                <option value="COMPRA">Compra</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </div>
+          </div>
+          <div class="row-3">
+            <div class="field">
+              <label for="entryPalletType">Tipo de pallet</label>
+              <select id="entryPalletType"></select>
+            </div>
+            <div class="field">
+              <label for="entryQty">Cantidad</label>
+              <input type="number" id="entryQty" min="1" step="1" />
+            </div>
+            <div class="field">
+              <label for="entryPlace">Lugar</label>
+              <select id="entryPlace"></select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="entryRemito">N° Remito</label>
+              <input id="entryRemito" placeholder="Opcional" />
+            </div>
+            <div class="field">
+              <label for="entryLinkedRequest">Vincular a solicitud</label>
+              <select id="entryLinkedRequest">
+                <option value="">(Sin vincular)</option>
+              </select>
+            </div>
+          </div>
+          <div class="row-1">
+            <div class="field">
+              <label for="entryNotes">Notas internas</label>
+              <input id="entryNotes" placeholder="Observaciones, acuerdos de cambio, etc." />
+            </div>
+          </div>
+          <div class="btn-row">
+            <p class="hint">
+              El dashboard traduce todo a pallets base con los precios configurados.
+            </p>
+            <button type="submit" class="btn-primary" id="entrySaveBtn">Guardar movimiento</button>
+          </div>
+        </form>
+        <p class="status" id="entryStatus">Movimientos guardados en Firestore.</p>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>📜 Últimos movimientos</h2>
+          <span>Control rápido</span>
+        </div>
+        <div class="flex-between" style="margin-bottom:6px;">
+          <span class="pill-info">
+            Ejemplo: 100 descartables (SALIDA) → Dashboard calcula cuántos ARLOG base equivalen.
+          </span>
+          <div style="min-width:200px;" class="filter-input">
+            <input id="entryFilterSupplier" placeholder="Filtrar por proveedor…" />
+          </div>
+        </div>
+        <div class="summary-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Proveedor</th>
+                <th>Dir.</th>
+                <th>Detalle</th>
+                <th>Solicitud</th>
+              </tr>
+            </thead>
+            <tbody id="entryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="view" id="view-dashboard">
+    <section class="card">
+      <div class="card-header">
+        <h2>📊 Dashboard por proveedor</h2>
+        <span>“Retiraste X rotos/descartables → me debés Y pallets base”</span>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <span class="label">Pallet base</span><br>
+          <span class="value" id="dashBaseName">Sin definir</span>
+        </div>
+        <div class="kpi-card">
+          <span class="label">Saldo global (pallet base)</span><br>
+          <span class="value" id="dashTotalSaldo">0</span>
+        </div>
+      </div>
+      <div class="flex-between" style="margin-bottom:6px;">
+        <span class="hint" id="dashHint">
+          Configurá precios y marcá el pallet base en la pestaña Configuración.
+        </span>
+        <div style="min-width:220px;" class="filter-input">
+          <input id="dashFilterSupplier" placeholder="Filtrar proveedor…" />
+        </div>
+      </div>
+      <div class="summary-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Saldo equivalente (pallet base)</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="dashTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+</main>
+
+<script type="module">
+  // --- Firebase ---
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    getDocs,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    doc,
+    query,
+    orderBy
+  } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAR2XGwhE4I6t-rriwQStdqbZCpK_OROHk",
+    authDomain: "pallets-ed1d6.firebaseapp.com",
+    projectId: "pallets-ed1d6",
+    storageBucket: "pallets-ed1d6.firebasestorage.app",
+    messagingSenderId: "1074527042774",
+    appId: "1:1074527042774:web:94bc33c4c55cd4da271d77"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // --- Estado en memoria ---
+  let suppliers = [];
+  let palletTypes = [];
+  let places = [];
+  let requests = [];
+  let entries = [];
+  let maxRequestNumber = 0;
+
+  // Utilidades
+  const $ = (id) => document.getElementById(id);
+
+  function padRequestNumber(n) {
+    return String(n || 0).padStart(4, "0");
+  }
+
+  // Navegación
+  const navButtons = document.querySelectorAll(".nav-btn");
+  const views = document.querySelectorAll(".view");
+  navButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const viewId = btn.dataset.view;
+      navButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      views.forEach(v => v.classList.remove("active"));
+      $(viewId).classList.add("active");
+      if (viewId === "view-dashboard") renderDashboard();
+    });
+  });
+
+  // -------- Helpers de nombres / precios --------
+  function getSupplierName(id) {
+    return suppliers.find(s => s.id === id)?.name || "";
+  }
+  function getPlaceName(id) {
+    return places.find(p => p.id === id)?.name || "";
+  }
+  function getPalletTypeName(id) {
+    return palletTypes.find(pt => pt.id === id)?.name || "";
+  }
+  function getPalletTypePrice(id) {
+    return palletTypes.find(pt => pt.id === id)?.price || 0;
+  }
+  function getBasePalletType() {
+    return palletTypes.find(pt => pt.isBase) || null;
+  }
+
+  // --------- CARGA DESDE FIRESTORE ---------
+  async function loadSuppliers() {
+    const snap = await getDocs(query(collection(db, "suppliers"), orderBy("name")));
+    suppliers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderSuppliers();
+    renderSupplierSelects();
+    renderDashboard();
+  }
+
+  async function loadPalletTypes() {
+    const snap = await getDocs(collection(db, "palletTypes"));
+    palletTypes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPalletTypes();
+    renderPalletTypeSelects();
+    renderDashboard();
+  }
+
+  async function loadPlaces() {
+    const snap = await getDocs(collection(db, "places"));
+    places = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPlaces();
+    renderPlaceSelects();
+  }
+
+  async function loadRequests() {
+    const snap = await getDocs(collection(db, "requests"));
+    requests = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => ((b.date || "") + (b.createdAt || "")).localeCompare((a.date || "") + (a.createdAt || "")));
+    maxRequestNumber = requests.reduce((max, r) => Math.max(max, r.number || 0), 0);
+    renderRequests();
+    renderEntryLinkedRequests();
+    renderDashboard();
+  }
+
+  async function loadEntries() {
+    const snap = await getDocs(collection(db, "entries"));
+    entries = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => ((b.date || "") + (b.createdAt || "")).localeCompare((a.date || "") + (a.createdAt || "")));
+    renderEntriesTable();
+    renderDashboard();
+  }
+
+  // ---------- PROVEEDORES ----------
+  const supplierForm = $("supplierForm");
+  const supplierIdInput = $("supplierId");
+  const supplierNameInput = $("supplierName");
+  const supplierAliasInput = $("supplierAlias");
+  const supplierCuitInput = $("supplierCuit");
+  const supplierPhoneInput = $("supplierPhone");
+  const supplierEmailInput = $("supplierEmail");
+  const supplierCityInput = $("supplierCity");
+  const supplierAddressInput = $("supplierAddress");
+  const supplierNotesInput = $("supplierNotes");
+  const supplierStatus = $("supplierStatus");
+  const supplierHint = $("supplierHint");
+  const supplierSaveBtn = $("supplierSaveBtn");
+  const supplierResetBtn = $("supplierResetBtn");
+  const supplierTableBody = $("supplierTableBody");
+  const supplierCount = $("supplierCount");
+  const supplierFilter = $("supplierFilter");
+
+  function resetSupplierForm() {
+    supplierForm.reset();
+    supplierIdInput.value = "";
+    supplierHint.textContent = "Modo: alta de nuevo proveedor.";
+    supplierSaveBtn.textContent = "Guardar proveedor";
+  }
+
+  supplierResetBtn.addEventListener("click", resetSupplierForm);
+
+  supplierForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = supplierIdInput.value;
+    const payload = {
+      name: supplierNameInput.value.trim(),
+      alias: supplierAliasInput.value.trim(),
+      cuit: supplierCuitInput.value.trim(),
+      phone: supplierPhoneInput.value.trim(),
+      email: supplierEmailInput.value.trim(),
+      city: supplierCityInput.value.trim(),
+      address: supplierAddressInput.value.trim(),
+      notes: supplierNotesInput.value.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    if (!payload.name) {
+      alert("El nombre del proveedor es obligatorio.");
+      return;
+    }
+    if (id) {
+      await updateDoc(doc(db, "suppliers", id), payload);
+      supplierStatus.textContent = "Proveedor actualizado ✅";
+    } else {
+      await addDoc(collection(db, "suppliers"), {
+        ...payload,
+        createdAt: new Date().toISOString()
+      });
+      supplierStatus.textContent = "Proveedor guardado ✅";
+    }
+    resetSupplierForm();
+    await loadSuppliers();
+  });
+
+  function renderSuppliers() {
+    const filter = (supplierFilter.value || "").toLowerCase();
+    supplierTableBody.innerHTML = "";
+    const filtered = suppliers.filter(s => {
+      const txt = ((s.name || "") + " " + (s.alias || "")).toLowerCase();
+      return !filter || txt.includes(filter);
+    });
+    supplierCount.textContent = filtered.length;
+
+    if (filtered.length === 0) {
+      supplierTableBody.innerHTML = `<tr><td colspan="4" class="empty">No hay proveedores cargados.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach(s => {
+      const hasMovements = requests.some(r => r.supplierId === s.id) ||
+                           entries.some(e => e.supplierId === s.id);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${s.name || ""}</strong><br><span class="hint">${s.alias || ""}</span></td>
+        <td>${s.cuit || "-"}</td>
+        <td style="font-size:11px;">${s.phone || ""} ${s.phone && s.email ? " · " : ""} ${s.email || ""}</td>
+        <td style="text-align:right;">
+          <button class="btn-ghost btn-sm" data-action="edit" data-id="${s.id}">Editar</button>
+          <button class="btn-ghost btn-sm" data-action="delete" data-id="${s.id}" ${hasMovements ? "disabled" : ""}>Borrar</button>
+        </td>
+      `;
+      supplierTableBody.appendChild(tr);
+    });
+  }
+
+  supplierTableBody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    const sup = suppliers.find(s => s.id === id);
+    if (!sup) return;
+
+    if (action === "edit") {
+      supplierIdInput.value = sup.id;
+      supplierNameInput.value = sup.name || "";
+      supplierAliasInput.value = sup.alias || "";
+      supplierCuitInput.value = sup.cuit || "";
+      supplierPhoneInput.value = sup.phone || "";
+      supplierEmailInput.value = sup.email || "";
+      supplierCityInput.value = sup.city || "";
+      supplierAddressInput.value = sup.address || "";
+      supplierNotesInput.value = sup.notes || "";
+      supplierHint.textContent = "Modo: edición.";
+      supplierSaveBtn.textContent = "Actualizar proveedor";
+    }
+
+    if (action === "delete") {
+      const hasMovs = requests.some(r => r.supplierId === id) ||
+                      entries.some(en => en.supplierId === id);
+      if (hasMovs) {
+        alert("No podés eliminar este proveedor porque tiene solicitudes o movimientos asociados.");
+        return;
+      }
+      if (confirm("¿Eliminar proveedor?")) {
+        await deleteDoc(doc(db, "suppliers", id));
+        await loadSuppliers();
+      }
+    }
+  });
+
+  supplierFilter.addEventListener("input", renderSuppliers);
+
+  // ---------- TIPOS DE PALLET ----------
+  const palletTypeForm = $("palletTypeForm");
+  const palletTypeIdInput = $("palletTypeId");
+  const palletTypeNameInput = $("palletTypeName");
+  const palletTypePriceInput = $("palletTypePrice");
+  const palletTypeIsBaseInput = $("palletTypeIsBase");
+  const palletTypeSaveBtn = $("palletTypeSaveBtn");
+  const palletTypeTableBody = $("palletTypeTableBody");
+  const palletTypeStatus = $("palletTypeStatus");
+
+  function resetPalletTypeForm() {
+    palletTypeForm.reset();
+    palletTypeIdInput.value = "";
+    palletTypeSaveBtn.textContent = "Guardar tipo";
+  }
+
+  palletTypeForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = palletTypeNameInput.value.trim();
+    const price = Number(palletTypePriceInput.value || 0);
+    if (!name) { alert("Nombre obligatorio"); return; }
+    if (price <= 0) { alert("Precio debe ser mayor a 0"); return; }
+
+    let id = palletTypeIdInput.value;
+    const isBase = palletTypeIsBaseInput.checked;
+
+    if (id) {
+      await updateDoc(doc(db, "palletTypes", id), { name, price, isBase });
+    } else {
+      const ref = await addDoc(collection(db, "palletTypes"), {
+        name, price, isBase, createdAt: new Date().toISOString()
+      });
+      id = ref.id;
+    }
+
+    // Si este es base → setear los demás como no base
+    if (isBase) {
+      // Simple: recargo todos y actualizo
+      const snap = await getDocs(collection(db, "palletTypes"));
+      for (const d of snap.docs) {
+        if (d.id !== id) {
+          await updateDoc(doc(db, "palletTypes", d.id), { isBase: false });
+        }
+      }
+    }
+
+    palletTypeStatus.textContent = "Tipo guardado ✅";
+    resetPalletTypeForm();
+    await loadPalletTypes();
+  });
+
+  function renderPalletTypes() {
+    palletTypeTableBody.innerHTML = "";
+    if (palletTypes.length === 0) {
+      palletTypeTableBody.innerHTML = `<tr><td colspan="4" class="empty">No hay tipos cargados.</td></tr>`;
+      return;
+    }
+    palletTypes.forEach(pt => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${pt.name}</td>
+        <td>$${(pt.price || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td>${pt.isBase ? "✅ Base" : "-"}</td>
+        <td style="text-align:right;">
+          <button class="btn-ghost btn-sm" data-kind="edit" data-id="${pt.id}">Editar</button>
+          <button class="btn-ghost btn-sm" data-kind="delete" data-id="${pt.id}">Borrar</button>
+        </td>
+      `;
+      palletTypeTableBody.appendChild(tr);
+    });
+  }
+
+  palletTypeTableBody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const kind = btn.dataset.kind;
+    const pt = palletTypes.find(p => p.id === id);
+    if (!pt) return;
+
+    if (kind === "edit") {
+      palletTypeIdInput.value = pt.id;
+      palletTypeNameInput.value = pt.name;
+      palletTypePriceInput.value = pt.price;
+      palletTypeIsBaseInput.checked = !!pt.isBase;
+      palletTypeSaveBtn.textContent = "Actualizar tipo";
+    }
+
+    if (kind === "delete") {
+      if (confirm("¿Eliminar este tipo de pallet?")) {
+        await deleteDoc(doc(db, "palletTypes", id));
+        await loadPalletTypes();
+        renderDashboard();
+      }
+    }
+  });
+
+  // ---------- LUGARES ----------
+  const placeForm = $("placeForm");
+  const placeNameInput = $("placeName");
+  const placeTableBody = $("placeTableBody");
+
+  placeForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = placeNameInput.value.trim();
+    if (!name) return;
+    await addDoc(collection(db, "places"), {
+      name,
+      createdAt: new Date().toISOString()
+    });
+    placeNameInput.value = "";
+    await loadPlaces();
+  });
+
+  function renderPlaces() {
+    placeTableBody.innerHTML = "";
+    if (places.length === 0) {
+      placeTableBody.innerHTML = `<tr><td colspan="2" class="empty">No hay lugares cargados.</td></tr>`;
+      return;
+    }
+    places.forEach(pl => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${pl.name}</td>
+        <td style="text-align:right;">
+          <button class="btn-ghost btn-sm" data-id="${pl.id}" data-kind="delete">Borrar</button>
+        </td>
+      `;
+      placeTableBody.appendChild(tr);
+    });
+  }
+
+  placeTableBody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.kind === "delete") {
+      if (confirm("¿Eliminar lugar?")) {
+        await deleteDoc(doc(db, "places", id));
+        await loadPlaces();
+      }
+    }
+  });
+
+  // ---------- SELECTS COMPARTIDOS ----------
+  const requestSupplierSelect = $("requestSupplier");
+  const entrySupplierSelect = $("entrySupplier");
+  const requestPalletTypeSelect = $("requestPalletType");
+  const entryPalletTypeSelect = $("entryPalletType");
+  const requestPlaceSelect = $("requestPlace");
+  const entryPlaceSelect = $("entryPlace");
+
+  function renderSupplierSelects() {
+    function fill(select) {
+      select.innerHTML = "";
+      if (suppliers.length === 0) {
+        select.innerHTML = `<option value="">(Cargá proveedores primero)</option>`;
+        select.disabled = true;
+      } else {
+        select.disabled = false;
+        select.innerHTML = `<option value="">Seleccionar…</option>`;
+        suppliers.forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = s.id;
+          opt.textContent = s.name + (s.alias ? " · " + s.alias : "");
+          select.appendChild(opt);
+        });
+      }
+    }
+    fill(requestSupplierSelect);
+    fill(entrySupplierSelect);
+  }
+
+  function renderPalletTypeSelects() {
+    function fill(select) {
+      select.innerHTML = "";
+      if (palletTypes.length === 0) {
+        select.innerHTML = `<option value="">(Sin tipos cargados)</option>`;
+        select.disabled = true;
+      } else {
+        select.disabled = false;
+        select.innerHTML = `<option value="">Seleccionar…</option>`;
+        palletTypes.forEach(pt => {
+          const opt = document.createElement("option");
+          opt.value = pt.id;
+          opt.textContent = pt.name;
+          select.appendChild(opt);
+        });
+      }
+    }
+    fill(requestPalletTypeSelect);
+    fill(entryPalletTypeSelect);
+  }
+
+  function renderPlaceSelects() {
+    function fill(select) {
+      select.innerHTML = "";
+      if (places.length === 0) {
+        select.innerHTML = `<option value="">(Sin lugares cargados)</option>`;
+        select.disabled = true;
+      } else {
+        select.disabled = false;
+        select.innerHTML = `<option value="">Seleccionar…</option>`;
+        places.forEach(pl => {
+          const opt = document.createElement("option");
+          opt.value = pl.id;
+          opt.textContent = pl.name;
+          select.appendChild(opt);
+        });
+      }
+    }
+    fill(requestPlaceSelect);
+    fill(entryPlaceSelect);
+  }
+
+  // ---------- SOLICITUDES ----------
+  const requestForm = $("requestForm");
+  const requestDate = $("requestDate");
+  const requestType = $("requestType");
+  const requestDueDate = $("requestDueDate");
+  const requestQty = $("requestQty");
+  const requestNotes = $("requestNotes");
+  const requestStatusLabel = $("requestStatus");
+  const requestStatusChips = $("requestStatusChips");
+  const requestFilterSupplier = $("requestFilterSupplier");
+  const requestTableBody = $("requestTableBody");
+  const reqKpiPending = $("reqKpiPending");
+  const reqKpiDone = $("reqKpiDone");
+  const reqKpiCancelled = $("reqKpiCancelled");
+
+  requestDate.valueAsDate = new Date();
+  let currentRequestStatusFilter = "ALL";
+
+  requestStatusChips.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    currentRequestStatusFilter = chip.dataset.status || "ALL";
+    requestStatusChips.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    renderRequests();
+  });
+
+  requestFilterSupplier.addEventListener("input", renderRequests);
+
+  requestForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!requestDate.value || !requestSupplierSelect.value || !requestType.value) {
+      alert("Fecha, proveedor y tipo de solicitud son obligatorios.");
+      return;
+    }
+    if (!requestPalletTypeSelect.value || !requestQty.value || Number(requestQty.value) <= 0) {
+      alert("Tipo de pallet y cantidad son obligatorios.");
+      return;
+    }
+
+    const number = maxRequestNumber + 1; // correlativo simple
+    const payload = {
+      number,
+      date: requestDate.value,
+      supplierId: requestSupplierSelect.value,
+      supplierName: getSupplierName(requestSupplierSelect.value),
+      type: requestType.value,
+      palletTypeId: requestPalletTypeSelect.value,
+      palletTypeName: getPalletTypeName(requestPalletTypeSelect.value),
+      qty: Number(requestQty.value || 0),
+      placeId: requestPlaceSelect.value || null,
+      placeName: requestPlaceSelect.value ? getPlaceName(requestPlaceSelect.value) : "",
+      dueDate: requestDueDate.value || null,
+      notes: requestNotes.value.trim() || "",
+      status: "PENDIENTE",
+      createdAt: new Date().toISOString()
+    };
+
+    await addDoc(collection(db, "requests"), payload);
+    requestStatusLabel.textContent = "Solicitud guardada ✅";
+    requestForm.reset();
+    requestDate.valueAsDate = new Date();
+    await loadRequests();
+  });
+
+  function renderRequests() {
+    requestTableBody.innerHTML = "";
+    const filterSup = (requestFilterSupplier.value || "").toLowerCase();
+    let pending = 0, done = 0, cancelled = 0;
+
+    const filtered = requests.filter(r => {
+      if (currentRequestStatusFilter !== "ALL" && r.status !== currentRequestStatusFilter) return false;
+      const matchSup = !filterSup || (r.supplierName || "").toLowerCase().includes(filterSup);
+      return matchSup;
+    });
+
+    requests.forEach(r => {
+      if (r.status === "PENDIENTE") pending++;
+      if (r.status === "CUMPLIDA") done++;
+      if (r.status === "CANCELADA") cancelled++;
+    });
+
+    reqKpiPending.textContent = pending;
+    reqKpiDone.textContent = done;
+    reqKpiCancelled.textContent = cancelled;
+
+    if (filtered.length === 0) {
+      requestTableBody.innerHTML = `<tr><td colspan="7" class="empty">No hay solicitudes.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach(r => {
+      const estadoBadge =
+        r.status === "PENDIENTE" ? `<span class="badge badge-yellow">Pendiente</span>` :
+        r.status === "CUMPLIDA" ? `<span class="badge badge-green">Cumplida</span>` :
+        `<span class="badge badge-red">Cancelada</span>`;
+      const detail = `${r.qty} × ${r.palletTypeName || ""}${r.placeName ? " · " + r.placeName : ""}`;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>#${padRequestNumber(r.number)}</td>
+        <td>${r.date || ""}</td>
+        <td>${r.supplierName || ""}</td>
+        <td>${detail}</td>
+        <td>${r.dueDate || "-"}</td>
+        <td>${estadoBadge}</td>
+        <td style="text-align:right;">
+          <button class="btn-ghost btn-sm" data-kind="print" data-id="${r.id}">🖨</button>
+          ${r.status === "PENDIENTE"
+            ? `<button class="btn-ghost btn-sm" data-kind="done" data-id="${r.id}">✔</button>
+               <button class="btn-ghost btn-sm" data-kind="cancel" data-id="${r.id}">✖</button>`
+            : ""
+          }
+        </td>
+      `;
+      requestTableBody.appendChild(tr);
+    });
+  }
+
+  requestTableBody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const kind = btn.dataset.kind;
+    const req = requests.find(r => r.id === id);
+    if (!req) return;
+
+    if (kind === "print") {
+      printRequest(req);
+      return;
+    }
+
+    if (kind === "done" || kind === "cancel") {
+      const status = kind === "done" ? "CUMPLIDA" : "CANCELADA";
+      await updateDoc(doc(db, "requests", id), { status });
+      await loadRequests();
+      return;
+    }
+  });
+
+  function printRequest(req) {
+    const sup = suppliers.find(s => s.id === req.supplierId);
+    const supInfoLines = [];
+    if (sup) {
+      if (sup.address) supInfoLines.push(sup.address);
+      if (sup.city) supInfoLines.push(sup.city);
+      if (sup.cuit) supInfoLines.push("CUIT: " + sup.cuit);
+    }
+    const win = window.open("", "_blank");
+    const html = `
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Solicitud ${padRequestNumber(req.number)} - ${req.supplierName}</title>
+        <style>
+          @page { size: A4; margin: 2cm; }
+          body { font-family: system-ui,-apple-system,"Segoe UI",sans-serif; font-size:12px; color:#111827; }
+          h1 { font-size:20px; margin-bottom:4px; }
+          .header { display:flex; justify-content:space-between; margin-bottom:20px; }
+          .box { border:1px solid #d1d5db; padding:10px; border-radius:8px; margin-bottom:16px; }
+          table { width:100%; border-collapse:collapse; margin-top:8px; }
+          th,td { border:1px solid #d1d5db; padding:6px 8px; font-size:12px; }
+          th { background:#f3f4f6; text-align:left; }
+          .footer { margin-top:30px; font-size:11px; color:#6b7280; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <strong>Pallets Control · Empresa</strong><br/>
+            <span>Gestión de pallets</span>
+          </div>
+          <div style="text-align:right;">
+            <strong>Solicitud N°:</strong> ${padRequestNumber(req.number)}<br/>
+            <strong>Fecha:</strong> ${req.date || ""}<br/>
+            ${req.dueDate ? `<strong>Fecha límite:</strong> ${req.dueDate}<br/>` : ""}
+            <strong>Tipo:</strong> ${req.type === "COMPRA" ? "Compra de pallets" : "Devolución de pallets"}
+          </div>
+        </div>
+
+        <h1>Solicitud de pallets</h1>
+
+        <div class="box">
+          <h3>Destinatario</h3>
+          <strong>${req.supplierName || ""}</strong><br/>
+          ${supInfoLines.join("<br/>")}
+        </div>
+
+        <div class="box">
+          <h3>Detalle</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Cantidad</th>
+                <th>Lugar</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${req.palletTypeName || ""}</td>
+                <td>${req.qty || ""}</td>
+                <td>${req.placeName || "-"}</td>
+              </tr>
+            </tbody>
+          </table>
+          ${req.notes ? `<p><strong>Notas:</strong> ${req.notes}</p>` : ""}
+        </div>
+
+        <p>
+          Por medio de la presente solicitamos ${
+            req.type === "COMPRA" ? "la compra y entrega" : "la devolución"
+          } de los pallets detallados, salvo acuerdo en contrario entre las partes.
+        </p>
+
+        <div class="footer">
+          _______________________________<br/>
+          Firma y aclaración<br/>
+          (Responsable de pallets)
+        </div>
+      </body>
+      </html>
+    `;
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 400);
+  }
+
+  // ---------- MOVIMIENTOS ----------
+  const entryForm = $("entryForm");
+  const entryDate = $("entryDate");
+  const entryDirection = $("entryDirection");
+  const entrySupplier = $("entrySupplier");
+  const entryConcept = $("entryConcept");
+  const entryPalletType = $("entryPalletType");
+  const entryQty = $("entryQty");
+  const entryPlace = $("entryPlace");
+  const entryRemito = $("entryRemito");
+  const entryLinkedRequest = $("entryLinkedRequest");
+  const entryNotes = $("entryNotes");
+  const entryStatus = $("entryStatus");
+  const entryFilterSupplier = $("entryFilterSupplier");
+  const entryTableBody = $("entryTableBody");
+
+  entryDate.valueAsDate = new Date();
+
+  function renderEntryLinkedRequests() {
+    entryLinkedRequest.innerHTML = `<option value="">(Sin vincular)</option>`;
+    const pending = requests.filter(r => r.status === "PENDIENTE");
+    pending.forEach(r => {
+      const opt = document.createElement("option");
+      opt.value = r.id;
+      opt.textContent = `#${padRequestNumber(r.number)} · ${r.supplierName} · ${r.qty} ${r.palletTypeName}`;
+      entryLinkedRequest.appendChild(opt);
+    });
+  }
+
+  entryLinkedRequest.addEventListener("change", () => {
+    const id = entryLinkedRequest.value;
+    if (!id) return;
+    const req = requests.find(r => r.id === id);
+    if (!req) return;
+    entrySupplier.value = req.supplierId || "";
+    entryPalletType.value = req.palletTypeId || "";
+    entryQty.value = req.qty || "";
+    entryPlace.value = req.placeId || "";
+  });
+
+  entryForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!entryDate.value || !entryDirection.value || !entrySupplier.value || !entryConcept.value) {
+      alert("Fecha, dirección, proveedor y concepto son obligatorios.");
+      return;
+    }
+    if (!entryPalletType.value || !entryQty.value || Number(entryQty.value) <= 0) {
+      alert("Tipo de pallet y cantidad son obligatorios.");
+      return;
+    }
+
+    const payload = {
+      date: entryDate.value,
+      direction: entryDirection.value,
+      supplierId: entrySupplier.value,
+      supplierName: getSupplierName(entrySupplier.value),
+      concept: entryConcept.value,
+      palletTypeId: entryPalletType.value,
+      palletTypeName: getPalletTypeName(entryPalletType.value),
+      qty: Number(entryQty.value || 0),
+      placeId: entryPlace.value || null,
+      placeName: entryPlace.value ? getPlaceName(entryPlace.value) : "",
+      remito: entryRemito.value.trim() || null,
+      notes: entryNotes.value.trim() || null,
+      linkedRequestId: entryLinkedRequest.value || null,
+      createdAt: new Date().toISOString()
+    };
+
+    await addDoc(collection(db, "entries"), payload);
+
+    if (payload.linkedRequestId) {
+      await updateDoc(doc(db, "requests", payload.linkedRequestId), { status: "CUMPLIDA" });
+      await loadRequests();
+    }
+
+    entryForm.reset();
+    entryDate.valueAsDate = new Date();
+    entryStatus.textContent = "Movimiento guardado ✅";
+    await loadEntries();
+  });
+
+  entryFilterSupplier.addEventListener("input", renderEntriesTable);
+
+  function renderEntriesTable() {
+    entryTableBody.innerHTML = "";
+    const filterSup = (entryFilterSupplier.value || "").toLowerCase();
+    const filtered = entries.filter(en =>
+      !filterSup || (en.supplierName || "").toLowerCase().includes(filterSup)
+    );
+
+    if (filtered.length === 0) {
+      entryTableBody.innerHTML = `<tr><td colspan="5" class="empty">No hay movimientos.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach(en => {
+      const detail = `${en.qty} × ${en.palletTypeName || ""}${en.placeName ? " · " + en.placeName : ""}`;
+      const linkedText = en.linkedRequestId ? `<span class="tag">Solicitud vinculada</span>` : "-";
+      const dirShort = en.direction === "SALIDA" ? "SALIDA" : (en.direction === "ENTRADA" ? "ENTRADA" : "-");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${en.date || ""}</td>
+        <td>${en.supplierName || ""}</td>
+        <td>${dirShort}</td>
+        <td>${detail}</td>
+        <td>${linkedText}</td>
+      `;
+      entryTableBody.appendChild(tr);
+    });
+  }
+
+  // ---------- DASHBOARD ----------
+  const dashBaseName = $("dashBaseName");
+  const dashTotalSaldo = $("dashTotalSaldo");
+  const dashFilterSupplier = $("dashFilterSupplier");
+  const dashTableBody = $("dashTableBody");
+  const dashHint = $("dashHint");
+
+  dashFilterSupplier.addEventListener("input", renderDashboard);
+
+  function renderDashboard() {
+    dashTableBody.innerHTML = "";
+
+    const base = getBasePalletType();
+    if (!base || !base.price || base.price <= 0) {
+      dashBaseName.textContent = "Sin definir";
+      dashTotalSaldo.textContent = "0";
+      dashHint.textContent = "Definí un pallet base y su precio en Configuración.";
+      dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay pallet base configurado.</td></tr>`;
+      return;
+    }
+
+    dashBaseName.textContent = `${base.name} ($${base.price.toLocaleString("es-AR")})`;
+    dashHint.textContent = "SALIDA suma deuda, ENTRADA resta, todo expresado en pallets base.";
+
+    const map = {};
+    entries.forEach(en => {
+      const priceType = getPalletTypePrice(en.palletTypeId);
+      if (!priceType || priceType <= 0) return;
+      if (!en.direction) return;
+      const sign = en.direction === "SALIDA" ? 1 : -1;
+      const eq = sign * (en.qty || 0) * (priceType / base.price);
+      const key = en.supplierId || "none";
+      if (!map[key]) {
+        map[key] = { supplierId: key, supplierName: en.supplierName || "Proveedor", saldoBase: 0 };
+      }
+      map[key].saldoBase += eq;
+    });
+
+    const list = Object.values(map);
+    const filterSup = (dashFilterSupplier.value || "").toLowerCase();
+    const filtered = list
+      .filter(row => !filterSup || (row.supplierName || "").toLowerCase().includes(filterSup))
+      .sort((a, b) => (a.supplierName || "").localeCompare(b.supplierName || ""));
+
+    if (filtered.length === 0) {
+      dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay movimientos con precios configurados.</td></tr>`;
+    } else {
+      filtered.forEach(row => {
+        const saldoRounded = Math.round(row.saldoBase * 100) / 100;
+        let estadoText = "";
+        let estadoClass = "";
+        if (saldoRounded > 0.0001) {
+          estadoText = "Proveedor te debe pallets base";
+          estadoClass = "badge badge-yellow";
+        } else if (saldoRounded < -0.0001) {
+          estadoText = "Tenés saldo a favor del proveedor";
+          estadoClass = "badge badge-red";
+        } else {
+          estadoText = "Equilibrado";
+          estadoClass = "badge badge-green";
+        }
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${row.supplierName}</strong></td>
+          <td>${saldoRounded.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td><span class="${estadoClass}">${estadoText}</span></td>
+        `;
+        dashTableBody.appendChild(tr);
+      });
+    }
+
+    const totalSaldo = list.reduce((acc, row) => acc + (row.saldoBase || 0), 0);
+    const totalRounded = Math.round(totalSaldo * 100) / 100;
+    dashTotalSaldo.textContent = totalRounded.toLocaleString("es-AR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    dashTotalSaldo.style.color =
+      totalRounded > 0.0001 ? "#eab308" :
+      totalRounded < -0.0001 ? "#ef4444" : "#16a34a";
+  }
+
+  // ---------- INIT ----------
+  (async () => {
+    try {
+      await loadSuppliers();
+      await loadPalletTypes();
+      await loadPlaces();
+      await loadRequests();
+      await loadEntries();
+      requestDate.valueAsDate = new Date();
+      entryDate.valueAsDate = new Date();
+    } catch (err) {
+      console.error(err);
+      alert("Error conectando con Firebase. Revisá que abras el HTML desde un servidor (no file://).");
+    }
+  })();
+</script>
+</body>
+</html>
