@@ -29,7 +29,48 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      opacity: 0;
+      animation: fadeInBody 0.6s ease forwards 0.4s;
     }
+    @keyframes fadeInBody {
+      to { opacity: 1; }
+    }
+
+    /* Splash animado */
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, #bbf7d0, #0f172a);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #e5e7eb;
+      z-index: 100;
+      animation: splashFade 1s ease forwards 1.4s;
+      pointer-events: none;
+    }
+    @keyframes splashFade {
+      to { opacity: 0; visibility: hidden; }
+    }
+    #splash .icon {
+      font-size: 56px;
+      animation: bounceIcon 1s infinite;
+    }
+    @keyframes bounceIcon {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    #splash h1 {
+      margin: 12px 0 4px;
+      font-size: 20px;
+    }
+    #splash p {
+      margin: 0;
+      font-size: 13px;
+      color: #cbd5f5;
+    }
+
     header {
       padding: 12px 20px;
       border-bottom: 1px solid #d1d5db;
@@ -333,9 +374,18 @@
       background: #e5e7eb;
       color: #374151;
     }
+
+    .row-hover { cursor: pointer; }
+    .row-hover:hover { background: #e0f2fe !important; }
   </style>
 </head>
 <body>
+<div id="splash">
+  <div class="icon">📦</div>
+  <h1>Pallets Control</h1>
+  <p>Armando el tablero con tus proveedores…</p>
+</div>
+
 <header>
   <div class="logo">
     <div class="logo-circle">📦</div>
@@ -646,6 +696,7 @@
           <span>ENTRADA / SALIDA con equivalencias</span>
         </div>
         <form id="entryForm">
+          <input type="hidden" id="entryId" />
           <div class="row">
             <div class="field">
               <label for="entryDate">Fecha</label>
@@ -731,10 +782,13 @@
             </div>
           </div>
           <div class="btn-row">
-            <p class="hint">
+            <p class="hint" id="entryHint">
               El dashboard traduce todo a pallets base (ARLOG sano) con precios o X a 1.
             </p>
-            <button type="submit" class="btn-primary" id="entrySaveBtn">Guardar movimiento</button>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn-ghost btn-sm" id="entryResetBtn">Limpiar</button>
+              <button type="submit" class="btn-primary" id="entrySaveBtn">Guardar movimiento</button>
+            </div>
           </div>
         </form>
         <p class="status" id="entryStatus">Movimientos guardados en Firestore.</p>
@@ -742,13 +796,12 @@
 
       <section class="card">
         <div class="card-header">
-          <h2>📜 Últimos movimientos</h2>
-          <span>Control rápido</span>
+          <h2>📜 Movimientos</h2>
+          <span>Editar / eliminar</span>
         </div>
         <div class="flex-between" style="margin-bottom:6px;">
           <span class="pill-info">
-            Ej: 100 descartables (SALIDA) → Dashboard los pasa a pallets base según $.
-            100 rotos 2×1 → 50 pallets base.
+            Tip: corregí un remito mal cargado sin matar el registro histórico.
           </span>
           <div style="min-width:200px;" class="filter-input">
             <input id="entryFilterSupplier" placeholder="Filtrar por proveedor…" />
@@ -763,6 +816,7 @@
                 <th>Dir.</th>
                 <th>Detalle</th>
                 <th>Solicitud</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="entryTableBody"></tbody>
@@ -810,6 +864,29 @@
         </table>
       </div>
     </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>📂 Resumen de movimientos del proveedor</h2>
+        <span>Click en una fila del dashboard para ver el detalle</span>
+      </div>
+      <p class="hint" id="dashDetailTitle">Todavía no seleccionaste ningún proveedor.</p>
+      <div class="summary-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Dir.</th>
+              <th>Tipo</th>
+              <th>Cant.</th>
+              <th>Equiv. base (redondeado)</th>
+              <th>Notas / Remito</th>
+            </tr>
+          </thead>
+          <tbody id="dashDetailBody"></tbody>
+        </table>
+      </div>
+    </section>
   </section>
 </main>
 
@@ -847,6 +924,8 @@
   let requests = [];
   let entries = [];
   let maxRequestNumber = 0;
+  let selectedDashSupplierId = null;
+  let editingEntryId = null;
 
   const $ = (id) => document.getElementById(id);
   const padRequestNumber = (n) => String(n || 0).padStart(4, "0");
@@ -1482,6 +1561,7 @@
 
   // ---------- MOVIMIENTOS ----------
   const entryFormEl = $("entryForm");
+  const entryIdInput = $("entryId");
   const entryDate = $("entryDate");
   const entryDirection = $("entryDirection");
   const entrySupplier = $("entrySupplier");
@@ -1497,9 +1577,24 @@
   const entryStatus = $("entryStatus");
   const entryFilterSupplier = $("entryFilterSupplier");
   const entryTableBody = $("entryTableBody");
+  const entrySaveBtn = $("entrySaveBtn");
+  const entryResetBtn = $("entryResetBtn");
+  const entryHint = $("entryHint");
 
   entryDate.valueAsDate = new Date();
   entryEquivMode.value = "PRICE";
+
+  function resetEntryForm() {
+    entryFormEl.reset();
+    entryIdInput.value = "";
+    editingEntryId = null;
+    entryDate.valueAsDate = new Date();
+    entryEquivMode.value = "PRICE";
+    entryEquivRatio.value = "";
+    entrySaveBtn.textContent = "Guardar movimiento";
+    entryHint.textContent = "El dashboard traduce todo a pallets base (ARLOG sano) con precios o X a 1.";
+  }
+  entryResetBtn.addEventListener("click", resetEntryForm);
 
   function renderEntryLinkedRequests() {
     entryLinkedRequest.innerHTML = `<option value="">(Sin vincular)</option>`;
@@ -1558,21 +1653,29 @@
       linkedRequestId: entryLinkedRequest.value || null,
       equivMode,
       equivRatio: equivMode === "RATIO" ? equivRatio : null,
-      createdAt: new Date().toISOString()
+      updatedAt: new Date().toISOString()
     };
 
-    await addDoc(collection(db, "entries"), payload);
+    if (editingEntryId) {
+      // Modo edición
+      await updateDoc(doc(db, "entries", editingEntryId), payload);
+      entryStatus.textContent = "Movimiento actualizado ✅";
+    } else {
+      // Alta nueva
+      await addDoc(collection(db, "entries"), {
+        ...payload,
+        createdAt: new Date().toISOString()
+      });
+      entryStatus.textContent = "Movimiento guardado ✅";
+    }
 
+    // Lógica de solicitudes vinculadas (simple): si hay linkedRequest → la dejamos como cumplida
     if (payload.linkedRequestId) {
       await updateDoc(doc(db, "requests", payload.linkedRequestId), { status: "CUMPLIDA" });
       await loadRequests();
     }
 
-    entryFormEl.reset();
-    entryDate.valueAsDate = new Date();
-    entryEquivMode.value = "PRICE";
-    entryEquivRatio.value = "";
-    entryStatus.textContent = "Movimiento guardado ✅";
+    resetEntryForm();
     await loadEntries();
   });
 
@@ -1586,7 +1689,7 @@
     );
 
     if (filtered.length === 0) {
-      entryTableBody.innerHTML = `<tr><td colspan="5" class="empty">No hay movimientos.</td></tr>`;
+      entryTableBody.innerHTML = `<tr><td colspan="6" class="empty">No hay movimientos.</td></tr>`;
       return;
     }
 
@@ -1605,10 +1708,65 @@
         <td>${dirShort}</td>
         <td>${detail}</td>
         <td>${linkedText}</td>
+        <td style="text-align:right;">
+          <button class="btn-ghost btn-sm" data-kind="edit" data-id="${en.id}">✏️</button>
+          <button class="btn-ghost btn-sm" data-kind="delete" data-id="${en.id}">🗑</button>
+        </td>
       `;
       entryTableBody.appendChild(tr);
     });
   }
+
+  entryTableBody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const kind = btn.dataset.kind;
+    const en = entries.find(x => x.id === id);
+    if (!en) return;
+
+    if (kind === "edit") {
+      // Cargar en formulario
+      editingEntryId = en.id;
+      entryIdInput.value = en.id;
+      entryDate.value = en.date || "";
+      entryDirection.value = en.direction || "";
+      entrySupplier.value = en.supplierId || "";
+      entryConcept.value = en.concept || "";
+      entryEquivMode.value = en.equivMode || "PRICE";
+      entryEquivRatio.value = en.equivRatio || "";
+      entryPalletType.value = en.palletTypeId || "";
+      entryQty.value = en.qty || "";
+      entryPlace.value = en.placeId || "";
+      entryRemito.value = en.remito || "";
+      entryNotes.value = en.notes || "";
+      entryLinkedRequest.value = en.linkedRequestId || "";
+      entrySaveBtn.textContent = "Actualizar movimiento";
+      entryHint.textContent = "Editando movimiento. Al guardar se recalcula la deuda.";
+      // Cambiamos de vista a Movimientos por si estás en otra
+      navButtons.forEach(b => b.classList.remove("active"));
+      views.forEach(v => v.classList.remove("active"));
+      document.querySelector('.nav-btn[data-view="view-movimientos"]').classList.add("active");
+      $("view-movimientos").classList.add("active");
+    }
+
+    if (kind === "delete") {
+      if (!confirm("¿Eliminar este movimiento? Se recalculará la deuda.")) return;
+      const linkedReqId = en.linkedRequestId || null;
+      await deleteDoc(doc(db, "entries", id));
+      await loadEntries();
+
+      // Si estaba vinculado a una solicitud, y ya no hay más movimientos con esa solicitud, la volvemos a PENDIENTE
+      if (linkedReqId) {
+        const stillLinked = entries.some(x => x.linkedRequestId === linkedReqId);
+        if (!stillLinked) {
+          await updateDoc(doc(db, "requests", linkedReqId), { status: "PENDIENTE" });
+          await loadRequests();
+        }
+      }
+      entryStatus.textContent = "Movimiento eliminado ✅";
+    }
+  });
 
   // ---------- DASHBOARD ----------
   const dashBaseName = $("dashBaseName");
@@ -1616,6 +1774,8 @@
   const dashFilterSupplier = $("dashFilterSupplier");
   const dashTableBody = $("dashTableBody");
   const dashHint = $("dashHint");
+  const dashDetailTitle = $("dashDetailTitle");
+  const dashDetailBody = $("dashDetailBody");
 
   dashFilterSupplier.addEventListener("input", renderDashboard);
 
@@ -1635,6 +1795,8 @@
 
   function renderDashboard() {
     dashTableBody.innerHTML = "";
+    dashDetailBody.innerHTML = "";
+    dashDetailTitle.textContent = "Click en un proveedor del dashboard para ver sus movimientos.";
 
     const base = getBasePalletType();
     if (!base || !base.price || base.price <= 0) {
@@ -1646,7 +1808,7 @@
     }
 
     dashBaseName.textContent = `${base.name} ($${base.price.toLocaleString("es-AR")})`;
-    dashHint.textContent = "SALIDA suma deuda, ENTRADA resta, todo expresado en pallets base (ARLOG sano).";
+    dashHint.textContent = "SALIDA suma deuda, ENTRADA resta, todo expresado en pallets base (ARLOG sano). Deuda redondeada a pallets enteros.";
 
     const map = {};
     entries.forEach(en => {
@@ -1672,13 +1834,13 @@
       dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay movimientos con precios/equivalencias configurados.</td></tr>`;
     } else {
       filtered.forEach(row => {
-        const saldoRounded = Math.round(row.saldoBase * 100) / 100;
+        const saldoRounded = Math.round(row.saldoBase); // 🔢 redondeo a pallet entero
         let estadoText = "";
         let estadoClass = "";
-        if (saldoRounded > 0.0001) {
+        if (saldoRounded > 0) {
           estadoText = "Proveedor te debe pallets base";
           estadoClass = "badge badge-yellow";
-        } else if (saldoRounded < -0.0001) {
+        } else if (saldoRounded < 0) {
           estadoText = "Tenés saldo a favor del proveedor";
           estadoClass = "badge badge-red";
         } else {
@@ -1686,9 +1848,11 @@
           estadoClass = "badge badge-green";
         }
         const tr = document.createElement("tr");
+        tr.classList.add("row-hover");
+        tr.dataset.supplierId = row.supplierId;
         tr.innerHTML = `
           <td><strong>${row.supplierName}</strong></td>
-          <td>${saldoRounded.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td>${saldoRounded.toLocaleString("es-AR")}</td>
           <td><span class="${estadoClass}">${estadoText}</span></td>
         `;
         dashTableBody.appendChild(tr);
@@ -1696,14 +1860,63 @@
     }
 
     const totalSaldo = list.reduce((acc, row) => acc + (row.saldoBase || 0), 0);
-    const totalRounded = Math.round(totalSaldo * 100) / 100;
-    dashTotalSaldo.textContent = totalRounded.toLocaleString("es-AR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    const totalRounded = Math.round(totalSaldo); // 🔢 también entero global
+    dashTotalSaldo.textContent = totalRounded.toLocaleString("es-AR");
     dashTotalSaldo.style.color =
-      totalRounded > 0.0001 ? "#eab308" :
-      totalRounded < -0.0001 ? "#ef4444" : "#16a34a";
+      totalRounded > 0 ? "#eab308" :
+      totalRounded < 0 ? "#ef4444" : "#16a34a";
+  }
+
+  dashTableBody.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr");
+    if (!tr || !tr.dataset.supplierId) return;
+    selectedDashSupplierId = tr.dataset.supplierId;
+    renderSupplierMovementsSummary();
+  });
+
+  function renderSupplierMovementsSummary() {
+    dashDetailBody.innerHTML = "";
+    if (!selectedDashSupplierId) {
+      dashDetailTitle.textContent = "Todavía no seleccionaste ningún proveedor.";
+      return;
+    }
+    const supName = getSupplierName(selectedDashSupplierId) || "Proveedor";
+    dashDetailTitle.textContent = `Resumen para: ${supName}`;
+
+    const base = getBasePalletType();
+    if (!base || !base.price) {
+      dashDetailBody.innerHTML = `<tr><td colspan="6" class="empty">Necesitás configurar el pallet base y su precio.</td></tr>`;
+      return;
+    }
+
+    const list = entries
+      .filter(en => en.supplierId === selectedDashSupplierId)
+      .slice()
+      .sort((a, b) => ((b.date || "") + (b.createdAt || "")).localeCompare((a.date || "") + (a.createdAt || "")));
+
+    if (list.length === 0) {
+      dashDetailBody.innerHTML = `<tr><td colspan="6" class="empty">Este proveedor aún no tiene movimientos.</td></tr>`;
+      return;
+    }
+
+    list.forEach(en => {
+      const factor = getEntryEquivalenceFactor(en, base);
+      const sign = en.direction === "SALIDA" ? 1 : (en.direction === "ENTRADA" ? -1 : 0);
+      const eqRaw = sign * (en.qty || 0) * factor;
+      const eqRounded = Math.round(eqRaw); // 🔢 redondeado a pallet entero
+      const dirShort = en.direction === "SALIDA" ? "SALIDA" : (en.direction === "ENTRADA" ? "ENTRADA" : "-");
+      const notesRemito = [en.remito, en.notes].filter(Boolean).join(" · ") || "-";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${en.date || ""}</td>
+        <td>${dirShort}</td>
+        <td>${en.palletTypeName || ""}</td>
+        <td>${en.qty || ""}</td>
+        <td>${isNaN(eqRounded) ? "-" : eqRounded}</td>
+        <td>${notesRemito}</td>
+      `;
+      dashDetailBody.appendChild(tr);
+    });
   }
 
   // ---------- INIT ----------
@@ -1725,4 +1938,3 @@
 </script>
 </body>
 </html>
-
