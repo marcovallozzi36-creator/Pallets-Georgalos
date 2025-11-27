@@ -472,7 +472,7 @@
                 <input type="checkbox" id="palletTypeIsBase" />
                 Usar como pallet base de equivalencia
               </label>
-              <span class="hint">Ej: ARLOG SANO como referencia</span>
+              <span class="hint">Ej: ARLOG SANO como referencia (todas las deudas se expresan en este).</span>
             </div>
             <div class="field" style="align-items:flex-end;">
               <button type="submit" class="btn-primary btn-sm" id="palletTypeSaveBtn">Guardar tipo</button>
@@ -678,6 +678,26 @@
               </select>
             </div>
           </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="entryEquivMode">Modo de equivalencia</label>
+              <select id="entryEquivMode">
+                <option value="PRICE">Automático por precio</option>
+                <option value="RATIO">Acuerdo X a 1</option>
+              </select>
+              <span class="hint">
+                PRICE: usa $ del tipo vs pallet base.  
+                X a 1: ej 2 rotos = 1 sano, 3 rotos = 1 sano, etc.
+              </span>
+            </div>
+            <div class="field">
+              <label for="entryEquivRatio">X en la relación X a 1</label>
+              <input type="number" id="entryEquivRatio" min="0" step="0.01" placeholder="Ej: 2 o 3" />
+              <span class="hint">Solo si elegís “Acuerdo X a 1”.</span>
+            </div>
+          </div>
+
           <div class="row-3">
             <div class="field">
               <label for="entryPalletType">Tipo de pallet</label>
@@ -712,7 +732,7 @@
           </div>
           <div class="btn-row">
             <p class="hint">
-              El dashboard traduce todo a pallets base con los precios configurados.
+              El dashboard traduce todo a pallets base (ARLOG sano) con precios o X a 1.
             </p>
             <button type="submit" class="btn-primary" id="entrySaveBtn">Guardar movimiento</button>
           </div>
@@ -727,7 +747,8 @@
         </div>
         <div class="flex-between" style="margin-bottom:6px;">
           <span class="pill-info">
-            Ejemplo: 100 descartables (SALIDA) → Dashboard calcula cuántos ARLOG base equivalen.
+            Ej: 100 descartables (SALIDA) → Dashboard los pasa a pallets base según $.
+            100 rotos 2×1 → 50 pallets base.
           </span>
           <div style="min-width:200px;" class="filter-input">
             <input id="entryFilterSupplier" placeholder="Filtrar por proveedor…" />
@@ -756,7 +777,7 @@
     <section class="card">
       <div class="card-header">
         <h2>📊 Dashboard por proveedor</h2>
-        <span>“Retiraste X rotos/descartables → me debés Y pallets base”</span>
+        <span>“Retiraste X rotos/descartables → me debés Y pallets base (ARLOG sano)”</span>
       </div>
       <div class="kpi-row">
         <div class="kpi-card">
@@ -827,12 +848,8 @@
   let entries = [];
   let maxRequestNumber = 0;
 
-  // Utilidades
   const $ = (id) => document.getElementById(id);
-
-  function padRequestNumber(n) {
-    return String(n || 0).padStart(4, "0");
-  }
+  const padRequestNumber = (n) => String(n || 0).padStart(4, "0");
 
   // Navegación
   const navButtons = document.querySelectorAll(".nav-btn");
@@ -848,24 +865,14 @@
     });
   });
 
-  // -------- Helpers de nombres / precios --------
-  function getSupplierName(id) {
-    return suppliers.find(s => s.id === id)?.name || "";
-  }
-  function getPlaceName(id) {
-    return places.find(p => p.id === id)?.name || "";
-  }
-  function getPalletTypeName(id) {
-    return palletTypes.find(pt => pt.id === id)?.name || "";
-  }
-  function getPalletTypePrice(id) {
-    return palletTypes.find(pt => pt.id === id)?.price || 0;
-  }
-  function getBasePalletType() {
-    return palletTypes.find(pt => pt.isBase) || null;
-  }
+  // Helpers nombres / precios
+  const getSupplierName = (id) => suppliers.find(s => s.id === id)?.name || "";
+  const getPlaceName = (id) => places.find(p => p.id === id)?.name || "";
+  const getPalletTypeName = (id) => palletTypes.find(pt => pt.id === id)?.name || "";
+  const getPalletTypePrice = (id) => palletTypes.find(pt => pt.id === id)?.price || 0;
+  const getBasePalletType = () => palletTypes.find(pt => pt.isBase) || null;
 
-  // --------- CARGA DESDE FIRESTORE ---------
+  // Carga desde Firestore
   async function loadSuppliers() {
     const snap = await getDocs(query(collection(db, "suppliers"), orderBy("name")));
     suppliers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -873,7 +880,6 @@
     renderSupplierSelects();
     renderDashboard();
   }
-
   async function loadPalletTypes() {
     const snap = await getDocs(collection(db, "palletTypes"));
     palletTypes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -881,14 +887,12 @@
     renderPalletTypeSelects();
     renderDashboard();
   }
-
   async function loadPlaces() {
     const snap = await getDocs(collection(db, "places"));
     places = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPlaces();
     renderPlaceSelects();
   }
-
   async function loadRequests() {
     const snap = await getDocs(collection(db, "requests"));
     requests = snap.docs
@@ -899,7 +903,6 @@
     renderEntryLinkedRequests();
     renderDashboard();
   }
-
   async function loadEntries() {
     const snap = await getDocs(collection(db, "entries"));
     entries = snap.docs
@@ -934,7 +937,6 @@
     supplierHint.textContent = "Modo: alta de nuevo proveedor.";
     supplierSaveBtn.textContent = "Guardar proveedor";
   }
-
   supplierResetBtn.addEventListener("click", resetSupplierForm);
 
   supplierForm.addEventListener("submit", async (e) => {
@@ -1073,9 +1075,7 @@
       id = ref.id;
     }
 
-    // Si este es base → setear los demás como no base
     if (isBase) {
-      // Simple: recargo todos y actualizo
       const snap = await getDocs(collection(db, "palletTypes"));
       for (const d of snap.docs) {
         if (d.id !== id) {
@@ -1100,7 +1100,7 @@
       tr.innerHTML = `
         <td>${pt.name}</td>
         <td>$${(pt.price || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td>${pt.isBase ? "✅ Base" : "-"}</td>
+        <td>${pt.isBase ? "✅ Base (ARLOG sano)" : "-"}</td>
         <td style="text-align:right;">
           <button class="btn-ghost btn-sm" data-kind="edit" data-id="${pt.id}">Editar</button>
           <button class="btn-ghost btn-sm" data-kind="delete" data-id="${pt.id}">Borrar</button>
@@ -1254,7 +1254,7 @@
   }
 
   // ---------- SOLICITUDES ----------
-  const requestForm = $("requestForm");
+  const requestFormEl = $("requestForm");
   const requestDate = $("requestDate");
   const requestType = $("requestType");
   const requestDueDate = $("requestDueDate");
@@ -1282,7 +1282,7 @@
 
   requestFilterSupplier.addEventListener("input", renderRequests);
 
-  requestForm.addEventListener("submit", async (e) => {
+  requestFormEl.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!requestDate.value || !requestSupplierSelect.value || !requestType.value) {
       alert("Fecha, proveedor y tipo de solicitud son obligatorios.");
@@ -1293,7 +1293,7 @@
       return;
     }
 
-    const number = maxRequestNumber + 1; // correlativo simple
+    const number = maxRequestNumber + 1;
     const payload = {
       number,
       date: requestDate.value,
@@ -1313,7 +1313,7 @@
 
     await addDoc(collection(db, "requests"), payload);
     requestStatusLabel.textContent = "Solicitud guardada ✅";
-    requestForm.reset();
+    requestFormEl.reset();
     requestDate.valueAsDate = new Date();
     await loadRequests();
   });
@@ -1481,11 +1481,13 @@
   }
 
   // ---------- MOVIMIENTOS ----------
-  const entryForm = $("entryForm");
+  const entryFormEl = $("entryForm");
   const entryDate = $("entryDate");
   const entryDirection = $("entryDirection");
   const entrySupplier = $("entrySupplier");
   const entryConcept = $("entryConcept");
+  const entryEquivMode = $("entryEquivMode");
+  const entryEquivRatio = $("entryEquivRatio");
   const entryPalletType = $("entryPalletType");
   const entryQty = $("entryQty");
   const entryPlace = $("entryPlace");
@@ -1497,6 +1499,7 @@
   const entryTableBody = $("entryTableBody");
 
   entryDate.valueAsDate = new Date();
+  entryEquivMode.value = "PRICE";
 
   function renderEntryLinkedRequests() {
     entryLinkedRequest.innerHTML = `<option value="">(Sin vincular)</option>`;
@@ -1520,7 +1523,7 @@
     entryPlace.value = req.placeId || "";
   });
 
-  entryForm.addEventListener("submit", async (e) => {
+  entryFormEl.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!entryDate.value || !entryDirection.value || !entrySupplier.value || !entryConcept.value) {
       alert("Fecha, dirección, proveedor y concepto son obligatorios.");
@@ -1528,6 +1531,14 @@
     }
     if (!entryPalletType.value || !entryQty.value || Number(entryQty.value) <= 0) {
       alert("Tipo de pallet y cantidad son obligatorios.");
+      return;
+    }
+
+    const equivMode = entryEquivMode.value || "PRICE";
+    const equivRatio = equivMode === "RATIO" ? Number(entryEquivRatio.value || 0) : null;
+
+    if (equivMode === "RATIO" && (!equivRatio || equivRatio <= 0)) {
+      alert("Indicá el valor X en la relación X a 1 (ej: 2 ó 3).");
       return;
     }
 
@@ -1545,6 +1556,8 @@
       remito: entryRemito.value.trim() || null,
       notes: entryNotes.value.trim() || null,
       linkedRequestId: entryLinkedRequest.value || null,
+      equivMode,
+      equivRatio: equivMode === "RATIO" ? equivRatio : null,
       createdAt: new Date().toISOString()
     };
 
@@ -1555,8 +1568,10 @@
       await loadRequests();
     }
 
-    entryForm.reset();
+    entryFormEl.reset();
     entryDate.valueAsDate = new Date();
+    entryEquivMode.value = "PRICE";
+    entryEquivRatio.value = "";
     entryStatus.textContent = "Movimiento guardado ✅";
     await loadEntries();
   });
@@ -1576,7 +1591,11 @@
     }
 
     filtered.forEach(en => {
-      const detail = `${en.qty} × ${en.palletTypeName || ""}${en.placeName ? " · " + en.placeName : ""}`;
+      let detail = `${en.qty} × ${en.palletTypeName || ""}`;
+      if (en.equivMode === "RATIO" && en.equivRatio) {
+        detail += ` (${en.equivRatio}→1)`;
+      }
+      if (en.placeName) detail += " · " + en.placeName;
       const linkedText = en.linkedRequestId ? `<span class="tag">Solicitud vinculada</span>` : "-";
       const dirShort = en.direction === "SALIDA" ? "SALIDA" : (en.direction === "ENTRADA" ? "ENTRADA" : "-");
       const tr = document.createElement("tr");
@@ -1600,6 +1619,20 @@
 
   dashFilterSupplier.addEventListener("input", renderDashboard);
 
+  function getEntryEquivalenceFactor(en, base) {
+    if (!base || !base.price) return 0;
+
+    // Si el movimiento tiene acuerdo X a 1 → factor = 1 / X
+    if (en.equivMode === "RATIO" && en.equivRatio && en.equivRatio > 0) {
+      return 1 / en.equivRatio;
+    }
+
+    // Si no, usamos precio del tipo vs precio base
+    const priceType = getPalletTypePrice(en.palletTypeId);
+    if (!priceType || priceType <= 0) return 0;
+    return priceType / base.price;
+  }
+
   function renderDashboard() {
     dashTableBody.innerHTML = "";
 
@@ -1607,21 +1640,21 @@
     if (!base || !base.price || base.price <= 0) {
       dashBaseName.textContent = "Sin definir";
       dashTotalSaldo.textContent = "0";
-      dashHint.textContent = "Definí un pallet base y su precio en Configuración.";
+      dashHint.textContent = "Definí un pallet base (ARLOG sano) y su precio en Configuración.";
       dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay pallet base configurado.</td></tr>`;
       return;
     }
 
     dashBaseName.textContent = `${base.name} ($${base.price.toLocaleString("es-AR")})`;
-    dashHint.textContent = "SALIDA suma deuda, ENTRADA resta, todo expresado en pallets base.";
+    dashHint.textContent = "SALIDA suma deuda, ENTRADA resta, todo expresado en pallets base (ARLOG sano).";
 
     const map = {};
     entries.forEach(en => {
-      const priceType = getPalletTypePrice(en.palletTypeId);
-      if (!priceType || priceType <= 0) return;
-      if (!en.direction) return;
-      const sign = en.direction === "SALIDA" ? 1 : -1;
-      const eq = sign * (en.qty || 0) * (priceType / base.price);
+      const factor = getEntryEquivalenceFactor(en, base);
+      if (!factor) return;
+      const sign = en.direction === "SALIDA" ? 1 : (en.direction === "ENTRADA" ? -1 : 0);
+      if (!sign) return;
+      const eq = sign * (en.qty || 0) * factor;
       const key = en.supplierId || "none";
       if (!map[key]) {
         map[key] = { supplierId: key, supplierName: en.supplierName || "Proveedor", saldoBase: 0 };
@@ -1636,7 +1669,7 @@
       .sort((a, b) => (a.supplierName || "").localeCompare(b.supplierName || ""));
 
     if (filtered.length === 0) {
-      dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay movimientos con precios configurados.</td></tr>`;
+      dashTableBody.innerHTML = `<tr><td colspan="3" class="empty">No hay movimientos con precios/equivalencias configurados.</td></tr>`;
     } else {
       filtered.forEach(row => {
         const saldoRounded = Math.round(row.saldoBase * 100) / 100;
@@ -1683,11 +1716,13 @@
       await loadEntries();
       requestDate.valueAsDate = new Date();
       entryDate.valueAsDate = new Date();
+      entryEquivMode.value = "PRICE";
     } catch (err) {
-      console.error(err);
-      alert("Error conectando con Firebase. Revisá que abras el HTML desde un servidor (no file://).");
+      console.error("Error Firebase:", err);
+      alert("Error Firebase: " + (err.message || err));
     }
   })();
 </script>
 </body>
 </html>
+
