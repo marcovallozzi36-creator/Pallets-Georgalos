@@ -578,12 +578,12 @@
     </div>
   </section>
 
-  <!-- SOLICITUDES -->
+  <!-- SOLICITUDES V3 (multi-renglón) -->
   <section class="view" id="view-solicitudes">
     <section class="card">
       <div class="card-header">
         <h2>📝 Nueva solicitud</h2>
-        <span>Con número correlativo irrepetible</span>
+        <span>Con número correlativo irrepetible y varios renglones</span>
       </div>
       <form id="requestForm">
         <div class="row">
@@ -603,23 +603,32 @@
             <input type="date" id="requestDueDate" />
           </div>
           <div class="field">
-            <label for="requestPalletType">Tipo de pallet</label>
-            <select id="requestPalletType"></select>
+            <label>&nbsp;</label>
+            <span class="hint">Podés mezclar compra y devolución en la misma solicitud.</span>
           </div>
         </div>
 
-        <div class="row-3">
+        <div class="row-1">
           <div class="field">
-            <label for="requestQtyCompra">Cantidad COMPRA</label>
-            <input type="number" id="requestQtyCompra" min="0" step="1" />
-          </div>
-          <div class="field">
-            <label for="requestQtyDevolucion">Cantidad DEVOLUCIÓN</label>
-            <input type="number" id="requestQtyDevolucion" min="0" step="1" />
-          </div>
-          <div class="field">
-            <label for="requestPlace">Lugar</label>
-            <select id="requestPlace"></select>
+            <label>Detalle de la solicitud</label>
+            <div class="summary-wrapper" style="max-height:260px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Tipo de pallet</th>
+                    <th>Lugar</th>
+                    <th>Cant. COMPRA</th>
+                    <th>Cant. DEVOLUCIÓN</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="requestItemsBody"></tbody>
+              </table>
+            </div>
+            <div style="margin-top:6px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn-ghost btn-sm" id="addRequestItemBtn">+ Agregar renglón</button>
+              <span class="hint">Dejá en 0 la columna que no uses (solo compra o solo devolución).</span>
+            </div>
           </div>
         </div>
 
@@ -630,7 +639,7 @@
           </div>
         </div>
         <div class="btn-row">
-          <p class="hint">Se numera como #0001, #0002… Podés combinar COMPRA y DEVOLUCIÓN en la misma solicitud.</p>
+          <p class="hint">Se numera como #0001, #0002…</p>
           <button type="submit" class="btn-primary" id="requestSaveBtn">Guardar solicitud</button>
         </div>
       </form>
@@ -960,6 +969,41 @@
   const getPalletTypePrice = (id) => palletTypes.find(pt => pt.id === id)?.price || 0;
   const getBasePalletType = () => palletTypes.find(pt => pt.isBase) || null;
 
+  // --- Helpers selects ---
+  function fillPalletTypeSelect(select) {
+    select.innerHTML = "";
+    if (palletTypes.length === 0) {
+      select.innerHTML = `<option value="">(Sin tipos cargados)</option>`;
+      select.disabled = true;
+    } else {
+      select.disabled = false;
+      select.innerHTML = `<option value="">Seleccionar…</option>`;
+      palletTypes.forEach(pt => {
+        const opt = document.createElement("option");
+        opt.value = pt.id;
+        opt.textContent = pt.name;
+        select.appendChild(opt);
+      });
+    }
+  }
+
+  function fillPlaceSelect(select) {
+    select.innerHTML = "";
+    if (places.length === 0) {
+      select.innerHTML = `<option value="">(Sin lugares cargados)</option>`;
+      select.disabled = false; // lugar puede ser opcional
+    } else {
+      select.disabled = false;
+      select.innerHTML = `<option value="">(Sin lugar)</option>`;
+      places.forEach(pl => {
+        const opt = document.createElement("option");
+        opt.value = pl.id;
+        opt.textContent = pl.name;
+        select.appendChild(opt);
+      });
+    }
+  }
+
   // Carga desde Firestore
   async function loadSuppliers() {
     const snap = await getDocs(query(collection(db, "suppliers"), orderBy("name")));
@@ -972,14 +1016,17 @@
     const snap = await getDocs(collection(db, "palletTypes"));
     palletTypes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPalletTypes();
-    renderPalletTypeSelects();
+    // refrescar selects existentes
+    fillPalletTypeSelect(entryPalletTypeSelect);
+    document.querySelectorAll(".req-item-palletType").forEach(sel => fillPalletTypeSelect(sel));
     renderDashboard();
   }
   async function loadPlaces() {
     const snap = await getDocs(collection(db, "places"));
     places = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPlaces();
-    renderPlaceSelects();
+    fillPlaceSelect(entryPlaceSelect);
+    document.querySelectorAll(".req-item-place").forEach(sel => fillPlaceSelect(sel));
   }
   async function loadRequests() {
     const snap = await getDocs(collection(db, "requests"));
@@ -1273,9 +1320,7 @@
   // ---------- SELECTS COMPARTIDOS ----------
   const requestSupplierSelect = $("requestSupplier");
   const entrySupplierSelect = $("entrySupplier");
-  const requestPalletTypeSelect = $("requestPalletType");
   const entryPalletTypeSelect = $("entryPalletType");
-  const requestPlaceSelect = $("requestPlace");
   const entryPlaceSelect = $("entryPlace");
 
   function renderSupplierSelects() {
@@ -1299,54 +1344,10 @@
     fill(entrySupplierSelect);
   }
 
-  function renderPalletTypeSelects() {
-    function fill(select) {
-      select.innerHTML = "";
-      if (palletTypes.length === 0) {
-        select.innerHTML = `<option value="">(Sin tipos cargados)</option>`;
-        select.disabled = true;
-      } else {
-        select.disabled = false;
-        select.innerHTML = `<option value="">Seleccionar…</option>`;
-        palletTypes.forEach(pt => {
-          const opt = document.createElement("option");
-          opt.value = pt.id;
-          opt.textContent = pt.name;
-          select.appendChild(opt);
-        });
-      }
-    }
-    fill(requestPalletTypeSelect);
-    fill(entryPalletTypeSelect);
-  }
-
-  function renderPlaceSelects() {
-    function fill(select) {
-      select.innerHTML = "";
-      if (places.length === 0) {
-        select.innerHTML = `<option value="">(Sin lugares cargados)</option>`;
-        select.disabled = true;
-      } else {
-        select.disabled = false;
-        select.innerHTML = `<option value="">Seleccionar…</option>`;
-        places.forEach(pl => {
-          const opt = document.createElement("option");
-          opt.value = pl.id;
-          opt.textContent = pl.name;
-          select.appendChild(opt);
-        });
-      }
-    }
-    fill(requestPlaceSelect);
-    fill(entryPlaceSelect);
-  }
-
-  // ---------- SOLICITUDES ----------
+  // ---------- SOLICITUDES V3 ----------
   const requestFormEl = $("requestForm");
   const requestDate = $("requestDate");
   const requestDueDate = $("requestDueDate");
-  const requestQtyCompra = $("requestQtyCompra");
-  const requestQtyDevolucion = $("requestQtyDevolucion");
   const requestNotes = $("requestNotes");
   const requestStatusLabel = $("requestStatus");
   const requestStatusChips = $("requestStatusChips");
@@ -1355,9 +1356,58 @@
   const reqKpiPending = $("reqKpiPending");
   const reqKpiDone = $("reqKpiDone");
   const reqKpiCancelled = $("reqKpiCancelled");
+  const requestItemsBody = $("requestItemsBody");
+  const addRequestItemBtn = $("addRequestItemBtn");
 
   requestDate.valueAsDate = new Date();
   let currentRequestStatusFilter = "ALL";
+
+  function createRequestItemRow() {
+    const tr = document.createElement("tr");
+    tr.className = "req-item-row";
+    tr.innerHTML = `
+      <td>
+        <select class="req-item-palletType"></select>
+      </td>
+      <td>
+        <select class="req-item-place"></select>
+      </td>
+      <td>
+        <input type="number" class="req-item-qty-compra" min="0" step="1" />
+      </td>
+      <td>
+        <input type="number" class="req-item-qty-devolucion" min="0" step="1" />
+      </td>
+      <td style="text-align:right;">
+        <button type="button" class="btn-ghost btn-sm req-item-delete">✖</button>
+      </td>
+    `;
+    const palletSelect = tr.querySelector(".req-item-palletType");
+    const placeSelect = tr.querySelector(".req-item-place");
+    fillPalletTypeSelect(palletSelect);
+    fillPlaceSelect(placeSelect);
+    requestItemsBody.appendChild(tr);
+  }
+
+  function resetRequestItemsTable() {
+    requestItemsBody.innerHTML = "";
+    createRequestItemRow();
+  }
+
+  addRequestItemBtn.addEventListener("click", () => {
+    createRequestItemRow();
+  });
+
+  requestItemsBody.addEventListener("click", (e) => {
+    const btn = e.target.closest(".req-item-delete");
+    if (!btn) return;
+    const row = btn.closest(".req-item-row");
+    if (!row) return;
+    row.remove();
+    if (requestItemsBody.querySelectorAll(".req-item-row").length === 0) {
+      createRequestItemRow();
+    }
+  });
 
   requestStatusChips.addEventListener("click", (e) => {
     const chip = e.target.closest(".chip");
@@ -1377,16 +1427,41 @@
       alert("Fecha y proveedor son obligatorios.");
       return;
     }
-    if (!requestPalletTypeSelect.value) {
-      alert("El tipo de pallet es obligatorio.");
-      return;
-    }
 
-    const qtyCompra = Number(requestQtyCompra.value || 0);
-    const qtyDevolucion = Number(requestQtyDevolucion.value || 0);
+    const rows = Array.from(document.querySelectorAll(".req-item-row"));
+    const items = [];
+    let totalCompra = 0;
+    let totalDevolucion = 0;
 
-    if (qtyCompra <= 0 && qtyDevolucion <= 0) {
-      alert("Indicá al menos una cantidad en COMPRA o en DEVOLUCIÓN.");
+    rows.forEach(row => {
+      const palletSelect = row.querySelector(".req-item-palletType");
+      const placeSelect = row.querySelector(".req-item-place");
+      const qtyCompraInput = row.querySelector(".req-item-qty-compra");
+      const qtyDevInput = row.querySelector(".req-item-qty-devolucion");
+
+      const palletTypeId = palletSelect.value;
+      const placeId = placeSelect.value || null;
+      const qtyCompra = Number(qtyCompraInput.value || 0);
+      const qtyDevolucion = Number(qtyDevInput.value || 0);
+
+      if (!palletTypeId) return;
+      if (qtyCompra <= 0 && qtyDevolucion <= 0) return;
+
+      const item = {
+        palletTypeId,
+        palletTypeName: getPalletTypeName(palletTypeId),
+        placeId,
+        placeName: placeId ? getPlaceName(placeId) : "",
+        qtyCompra,
+        qtyDevolucion
+      };
+      items.push(item);
+      totalCompra += qtyCompra;
+      totalDevolucion += qtyDevolucion;
+    });
+
+    if (items.length === 0) {
+      alert("Cargá al menos un renglón con tipo de pallet y alguna cantidad en compra o devolución.");
       return;
     }
 
@@ -1397,15 +1472,10 @@
       date: requestDate.value,
       supplierId: requestSupplierSelect.value,
       supplierName: getSupplierName(requestSupplierSelect.value),
-      palletTypeId: requestPalletTypeSelect.value,
-      palletTypeName: getPalletTypeName(requestPalletTypeSelect.value),
-      // NUEVOS CAMPOS
-      qtyCompra,
-      qtyDevolucion,
-      // Campo total para compatibilidad
-      qty: qtyCompra + qtyDevolucion,
-      placeId: requestPlaceSelect.value || null,
-      placeName: requestPlaceSelect.value ? getPlaceName(requestPlaceSelect.value) : "",
+      items,
+      totalQtyCompra: totalCompra,
+      totalQtyDevolucion: totalDevolucion,
+      totalQty: totalCompra + totalDevolucion,
       dueDate: requestDueDate.value || null,
       notes: requestNotes.value.trim() || "",
       status: "PENDIENTE",
@@ -1416,8 +1486,32 @@
     requestStatusLabel.textContent = "Solicitud guardada ✅";
     requestFormEl.reset();
     requestDate.valueAsDate = new Date();
+    resetRequestItemsTable();
     await loadRequests();
   });
+
+  function resumenItemsHuman(req) {
+    // Soporte V3 (items) + compatibilidad con V2
+    if (Array.isArray(req.items) && req.items.length > 0) {
+      return req.items.map(it => {
+        const partes = [];
+        if (it.qtyCompra) partes.push(`${it.qtyCompra} COMPRA`);
+        if (it.qtyDevolucion) partes.push(`${it.qtyDevolucion} DEVOLUCIÓN`);
+        const qtyText = partes.join(" + ") || "0";
+        return `${qtyText} × ${it.palletTypeName || ""}${it.placeName ? " · " + it.placeName : ""}`;
+      }).join(" • ");
+    } else {
+      // V2 / legado
+      const parts = [];
+      if (req.qtyCompra) parts.push(`${req.qtyCompra} COMPRA`);
+      if (req.qtyDevolucion) parts.push(`${req.qtyDevolucion} DEVOLUCIÓN`);
+      let qtyText = parts.join(" + ");
+      if (!qtyText && req.qty) qtyText = `${req.qty}`;
+      return `${qtyText} × ${req.palletTypeName || ""}${req.placeName ? " · " + req.placeName : ""}`;
+    }
+  }
+
+  requestDate.valueAsDate = new Date();
 
   function renderRequests() {
     requestTableBody.innerHTML = "";
@@ -1451,16 +1545,7 @@
         r.status === "CUMPLIDA" ? `<span class="badge badge-green">Cumplida</span>` :
         `<span class="badge badge-red">Cancelada</span>`;
 
-      const parts = [];
-      if (r.qtyCompra) parts.push(`${r.qtyCompra} COMPRA`);
-      if (r.qtyDevolucion) parts.push(`${r.qtyDevolucion} DEVOLUCIÓN`);
-
-      let qtyText = parts.join(" + ");
-      if (!qtyText && r.qty) {
-        qtyText = `${r.qty}`;
-      }
-
-      const detail = `${qtyText} × ${r.palletTypeName || ""}${r.placeName ? " · " + r.placeName : ""}`;
+      const detail = resumenItemsHuman(r);
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -1504,6 +1589,32 @@
     }
   });
 
+  function getRequestItemsForPrint(req) {
+    if (Array.isArray(req.items) && req.items.length > 0) {
+      return req.items;
+    } else {
+      // Construimos un "items" compatible desde campos viejos
+      const qtyCompra = (typeof req.qtyCompra === "number")
+        ? req.qtyCompra
+        : (req.type === "COMPRA" ? (req.qty || 0) : 0);
+
+      const qtyDevolucion = (typeof req.qtyDevolucion === "number")
+        ? req.qtyDevolucion
+        : (req.type === "DEVOLUCION" ? (req.qty || 0) : 0);
+
+      if (!req.palletTypeId && !req.palletTypeName && !qtyCompra && !qtyDevolucion) return [];
+
+      return [{
+        palletTypeId: req.palletTypeId || null,
+        palletTypeName: req.palletTypeName || "",
+        placeId: req.placeId || null,
+        placeName: req.placeName || "",
+        qtyCompra,
+        qtyDevolucion
+      }];
+    }
+  }
+
   function printRequest(req) {
     const sup = suppliers.find(s => s.id === req.supplierId);
     const supInfoLines = [];
@@ -1513,17 +1624,25 @@
       if (sup.cuit) supInfoLines.push("CUIT: " + sup.cuit);
     }
 
-    // Soporte para solicitudes viejas y nuevas
-    const qtyCompra = (typeof req.qtyCompra === "number")
-      ? req.qtyCompra
-      : (req.type === "COMPRA" ? (req.qty || 0) : 0);
+    const items = getRequestItemsForPrint(req);
 
-    const qtyDevolucion = (typeof req.qtyDevolucion === "number")
-      ? req.qtyDevolucion
-      : (req.type === "DEVOLUCION" ? (req.qty || 0) : 0);
+    let totalCompra = 0;
+    let totalDevolucion = 0;
+    items.forEach(it => {
+      totalCompra += it.qtyCompra || 0;
+      totalDevolucion += it.qtyDevolucion || 0;
+    });
 
-    const tieneCompra = qtyCompra > 0;
-    const tieneDevolucion = qtyDevolucion > 0;
+    let tieneCompra = totalCompra > 0;
+    let tieneDevolucion = totalDevolucion > 0;
+
+    // fallback por si items vacío pero hay totales en campos viejos
+    if (!items.length && (req.totalQtyCompra || req.totalQtyDevolucion || req.qty)) {
+      const qtyCompra = req.totalQtyCompra || 0;
+      const qtyDev = req.totalQtyDevolucion || 0;
+      tieneCompra = qtyCompra > 0;
+      tieneDevolucion = qtyDev > 0;
+    }
 
     let tipoTextoHeader = "Solicitud de pallets";
     if (tieneCompra && tieneDevolucion) {
@@ -1590,27 +1709,21 @@
           <table>
             <thead>
               <tr>
-                <th>Tipo</th>
-                <th>Cantidad</th>
+                <th>Tipo de pallet</th>
+                <th>Cant. COMPRA</th>
+                <th>Cant. DEVOLUCIÓN</th>
                 <th>Lugar</th>
               </tr>
             </thead>
             <tbody>
-              ${tieneCompra ? `
+              ${items.map(it => `
                 <tr>
-                  <td>${req.palletTypeName || ""} (COMPRA)</td>
-                  <td>${qtyCompra}</td>
-                  <td>${req.placeName || "-"}</td>
+                  <td>${it.palletTypeName || ""}</td>
+                  <td>${it.qtyCompra || 0}</td>
+                  <td>${it.qtyDevolucion || 0}</td>
+                  <td>${it.placeName || "-"}</td>
                 </tr>
-              ` : ""}
-
-              ${tieneDevolucion ? `
-                <tr>
-                  <td>${req.palletTypeName || ""} (DEVOLUCIÓN)</td>
-                  <td>${qtyDevolucion}</td>
-                  <td>${req.placeName || "-"}</td>
-                </tr>
-              ` : ""}
+              `).join("")}
             </tbody>
           </table>
           ${req.notes ? `<p><strong>Notas:</strong> ${req.notes}</p>` : ""}
@@ -1679,27 +1792,18 @@
     pending.forEach(r => {
       const opt = document.createElement("option");
       opt.value = r.id;
-
-      const parts = [];
-      if (r.qtyCompra) parts.push(`${r.qtyCompra} COMPRA`);
-      if (r.qtyDevolucion) parts.push(`${r.qtyDevolucion} DEVOLUCIÓN`);
-      let qtyText = parts.join(" + ");
-      if (!qtyText && r.qty) qtyText = `${r.qty}`;
-
-      opt.textContent = `#${padRequestNumber(r.number)} · ${r.supplierName} · ${qtyText} ${r.palletTypeName}`;
+      opt.textContent = `#${padRequestNumber(r.number)} · ${r.supplierName} · ${resumenItemsHuman(r)}`;
       entryLinkedRequest.appendChild(opt);
     });
   }
 
+  // En V3, al elegir solicitud solo seteamos proveedor, el resto lo define el usuario
   entryLinkedRequest.addEventListener("change", () => {
     const id = entryLinkedRequest.value;
     if (!id) return;
     const req = requests.find(r => r.id === id);
     if (!req) return;
     entrySupplier.value = req.supplierId || "";
-    entryPalletType.value = req.palletTypeId || "";
-    entryQty.value = req.qty || "";
-    entryPlace.value = req.placeId || "";
   });
 
   entryFormEl.addEventListener("submit", async (e) => {
@@ -2043,6 +2147,11 @@
       requestDate.valueAsDate = new Date();
       entryDate.valueAsDate = new Date();
       entryEquivMode.value = "PRICE";
+      // iniciar tabla de renglones de solicitud
+      resetRequestItemsTable();
+      // inicializar selects de entrada
+      fillPalletTypeSelect(entryPalletTypeSelect);
+      fillPlaceSelect(entryPlaceSelect);
     } catch (err) {
       console.error("Error Firebase:", err);
       alert("Error Firebase: " + (err.message || err));
