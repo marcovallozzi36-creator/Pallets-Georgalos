@@ -596,34 +596,33 @@
             <select id="requestSupplier" required></select>
           </div>
         </div>
+
         <div class="row">
-          <div class="field">
-            <label for="requestType">Tipo de solicitud</label>
-            <select id="requestType" required>
-              <option value="">Seleccionar…</option>
-              <option value="DEVOLUCION">Devolución de pallets</option>
-              <option value="COMPRA">Compra de pallets</option>
-            </select>
-          </div>
           <div class="field">
             <label for="requestDueDate">Fecha límite</label>
             <input type="date" id="requestDueDate" />
           </div>
-        </div>
-        <div class="row-3">
           <div class="field">
             <label for="requestPalletType">Tipo de pallet</label>
             <select id="requestPalletType"></select>
           </div>
+        </div>
+
+        <div class="row-3">
           <div class="field">
-            <label for="requestQty">Cantidad</label>
-            <input type="number" id="requestQty" min="1" step="1" />
+            <label for="requestQtyCompra">Cantidad COMPRA</label>
+            <input type="number" id="requestQtyCompra" min="0" step="1" />
+          </div>
+          <div class="field">
+            <label for="requestQtyDevolucion">Cantidad DEVOLUCIÓN</label>
+            <input type="number" id="requestQtyDevolucion" min="0" step="1" />
           </div>
           <div class="field">
             <label for="requestPlace">Lugar</label>
             <select id="requestPlace"></select>
           </div>
         </div>
+
         <div class="row-1">
           <div class="field">
             <label for="requestNotes">Notas</label>
@@ -631,7 +630,7 @@
           </div>
         </div>
         <div class="btn-row">
-          <p class="hint">Se numera como #0001, #0002…</p>
+          <p class="hint">Se numera como #0001, #0002… Podés combinar COMPRA y DEVOLUCIÓN en la misma solicitud.</p>
           <button type="submit" class="btn-primary" id="requestSaveBtn">Guardar solicitud</button>
         </div>
       </form>
@@ -1345,9 +1344,9 @@
   // ---------- SOLICITUDES ----------
   const requestFormEl = $("requestForm");
   const requestDate = $("requestDate");
-  const requestType = $("requestType");
   const requestDueDate = $("requestDueDate");
-  const requestQty = $("requestQty");
+  const requestQtyCompra = $("requestQtyCompra");
+  const requestQtyDevolucion = $("requestQtyDevolucion");
   const requestNotes = $("requestNotes");
   const requestStatusLabel = $("requestStatus");
   const requestStatusChips = $("requestStatusChips");
@@ -1373,25 +1372,38 @@
 
   requestFormEl.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!requestDate.value || !requestSupplierSelect.value || !requestType.value) {
-      alert("Fecha, proveedor y tipo de solicitud son obligatorios.");
+
+    if (!requestDate.value || !requestSupplierSelect.value) {
+      alert("Fecha y proveedor son obligatorios.");
       return;
     }
-    if (!requestPalletTypeSelect.value || !requestQty.value || Number(requestQty.value) <= 0) {
-      alert("Tipo de pallet y cantidad son obligatorios.");
+    if (!requestPalletTypeSelect.value) {
+      alert("El tipo de pallet es obligatorio.");
+      return;
+    }
+
+    const qtyCompra = Number(requestQtyCompra.value || 0);
+    const qtyDevolucion = Number(requestQtyDevolucion.value || 0);
+
+    if (qtyCompra <= 0 && qtyDevolucion <= 0) {
+      alert("Indicá al menos una cantidad en COMPRA o en DEVOLUCIÓN.");
       return;
     }
 
     const number = maxRequestNumber + 1;
+
     const payload = {
       number,
       date: requestDate.value,
       supplierId: requestSupplierSelect.value,
       supplierName: getSupplierName(requestSupplierSelect.value),
-      type: requestType.value,
       palletTypeId: requestPalletTypeSelect.value,
       palletTypeName: getPalletTypeName(requestPalletTypeSelect.value),
-      qty: Number(requestQty.value || 0),
+      // NUEVOS CAMPOS
+      qtyCompra,
+      qtyDevolucion,
+      // Campo total para compatibilidad
+      qty: qtyCompra + qtyDevolucion,
       placeId: requestPlaceSelect.value || null,
       placeName: requestPlaceSelect.value ? getPlaceName(requestPlaceSelect.value) : "",
       dueDate: requestDueDate.value || null,
@@ -1438,7 +1450,18 @@
         r.status === "PENDIENTE" ? `<span class="badge badge-yellow">Pendiente</span>` :
         r.status === "CUMPLIDA" ? `<span class="badge badge-green">Cumplida</span>` :
         `<span class="badge badge-red">Cancelada</span>`;
-      const detail = `${r.qty} × ${r.palletTypeName || ""}${r.placeName ? " · " + r.placeName : ""}`;
+
+      const parts = [];
+      if (r.qtyCompra) parts.push(`${r.qtyCompra} COMPRA`);
+      if (r.qtyDevolucion) parts.push(`${r.qtyDevolucion} DEVOLUCIÓN`);
+
+      let qtyText = parts.join(" + ");
+      if (!qtyText && r.qty) {
+        qtyText = `${r.qty}`;
+      }
+
+      const detail = `${qtyText} × ${r.palletTypeName || ""}${r.placeName ? " · " + r.placeName : ""}`;
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>#${padRequestNumber(r.number)}</td>
@@ -1489,6 +1512,39 @@
       if (sup.city) supInfoLines.push(sup.city);
       if (sup.cuit) supInfoLines.push("CUIT: " + sup.cuit);
     }
+
+    // Soporte para solicitudes viejas y nuevas
+    const qtyCompra = (typeof req.qtyCompra === "number")
+      ? req.qtyCompra
+      : (req.type === "COMPRA" ? (req.qty || 0) : 0);
+
+    const qtyDevolucion = (typeof req.qtyDevolucion === "number")
+      ? req.qtyDevolucion
+      : (req.type === "DEVOLUCION" ? (req.qty || 0) : 0);
+
+    const tieneCompra = qtyCompra > 0;
+    const tieneDevolucion = qtyDevolucion > 0;
+
+    let tipoTextoHeader = "Solicitud de pallets";
+    if (tieneCompra && tieneDevolucion) {
+      tipoTextoHeader = "Compra y devolución de pallets";
+    } else if (tieneCompra) {
+      tipoTextoHeader = "Compra de pallets";
+    } else if (tieneDevolucion) {
+      tipoTextoHeader = "Devolución de pallets";
+    }
+
+    let textoAccion = "";
+    if (tieneCompra && tieneDevolucion) {
+      textoAccion = "la compra y entrega, y la devolución";
+    } else if (tieneCompra) {
+      textoAccion = "la compra y entrega";
+    } else if (tieneDevolucion) {
+      textoAccion = "la devolución";
+    } else {
+      textoAccion = "la entrega";
+    }
+
     const win = window.open("", "_blank");
     const html = `
       <html>
@@ -1517,11 +1573,11 @@
             <strong>Solicitud N°:</strong> ${padRequestNumber(req.number)}<br/>
             <strong>Fecha:</strong> ${req.date || ""}<br/>
             ${req.dueDate ? `<strong>Fecha límite:</strong> ${req.dueDate}<br/>` : ""}
-            <strong>Tipo:</strong> ${req.type === "COMPRA" ? "Compra de pallets" : "Devolución de pallets"}
+            <strong>Tipo:</strong> ${tipoTextoHeader}
           </div>
         </div>
 
-        <h1>Solicitud de pallets</h1>
+        <h1>${tipoTextoHeader}</h1>
 
         <div class="box">
           <h3>Destinatario</h3>
@@ -1540,20 +1596,29 @@
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>${req.palletTypeName || ""}</td>
-                <td>${req.qty || ""}</td>
-                <td>${req.placeName || "-"}</td>
-              </tr>
+              ${tieneCompra ? `
+                <tr>
+                  <td>${req.palletTypeName || ""} (COMPRA)</td>
+                  <td>${qtyCompra}</td>
+                  <td>${req.placeName || "-"}</td>
+                </tr>
+              ` : ""}
+
+              ${tieneDevolucion ? `
+                <tr>
+                  <td>${req.palletTypeName || ""} (DEVOLUCIÓN)</td>
+                  <td>${qtyDevolucion}</td>
+                  <td>${req.placeName || "-"}</td>
+                </tr>
+              ` : ""}
             </tbody>
           </table>
           ${req.notes ? `<p><strong>Notas:</strong> ${req.notes}</p>` : ""}
         </div>
 
         <p>
-          Por medio de la presente solicitamos ${
-            req.type === "COMPRA" ? "la compra y entrega" : "la devolución"
-          } de los pallets detallados, salvo acuerdo en contrario entre las partes.
+          Por medio de la presente solicitamos ${textoAccion} de los pallets detallados,
+          salvo acuerdo en contrario entre las partes.
         </p>
 
         <div class="footer">
@@ -1614,7 +1679,14 @@
     pending.forEach(r => {
       const opt = document.createElement("option");
       opt.value = r.id;
-      opt.textContent = `#${padRequestNumber(r.number)} · ${r.supplierName} · ${r.qty} ${r.palletTypeName}`;
+
+      const parts = [];
+      if (r.qtyCompra) parts.push(`${r.qtyCompra} COMPRA`);
+      if (r.qtyDevolucion) parts.push(`${r.qtyDevolucion} DEVOLUCIÓN`);
+      let qtyText = parts.join(" + ");
+      if (!qtyText && r.qty) qtyText = `${r.qty}`;
+
+      opt.textContent = `#${padRequestNumber(r.number)} · ${r.supplierName} · ${qtyText} ${r.palletTypeName}`;
       entryLinkedRequest.appendChild(opt);
     });
   }
@@ -1676,11 +1748,9 @@
     };
 
     if (editingEntryId) {
-      // Modo edición
       await updateDoc(doc(db, "entries", editingEntryId), payload);
       entryStatus.textContent = "Movimiento actualizado ✅";
     } else {
-      // Alta nueva
       await addDoc(collection(db, "entries"), {
         ...payload,
         createdAt: new Date().toISOString()
@@ -1688,7 +1758,6 @@
       entryStatus.textContent = "Movimiento guardado ✅";
     }
 
-    // Lógica de solicitudes vinculadas (simple): si hay linkedRequest → la dejamos como cumplida
     if (payload.linkedRequestId) {
       await updateDoc(doc(db, "requests", payload.linkedRequestId), { status: "CUMPLIDA" });
       await loadRequests();
@@ -1745,7 +1814,6 @@
     if (!en) return;
 
     if (kind === "edit") {
-      // Cargar en formulario
       editingEntryId = en.id;
       entryIdInput.value = en.id;
       entryDate.value = en.date || "";
@@ -1763,7 +1831,7 @@
       entryUnitPrice.value = en.unitPrice ?? "";
       entrySaveBtn.textContent = "Actualizar movimiento";
       entryHint.textContent = "Editando movimiento. Al guardar se recalcula la deuda. Las compras siguen fuera del circuito de trueque.";
-      // Cambiamos de vista a Movimientos
+
       navButtons.forEach(b => b.classList.remove("active"));
       views.forEach(v => v.classList.remove("active"));
       document.querySelector('.nav-btn[data-view="view-movimientos"]').classList.add("active");
@@ -1776,7 +1844,6 @@
       await deleteDoc(doc(db, "entries", id));
       await loadEntries();
 
-      // Si estaba vinculado a una solicitud, y ya no hay más movimientos con esa solicitud, la volvemos a PENDIENTE
       if (linkedReqId) {
         const stillLinked = entries.some(x => x.linkedRequestId === linkedReqId);
         if (!stillLinked) {
@@ -1802,15 +1869,12 @@
   function getEntryEquivalenceFactor(en, base) {
     if (!base || !base.price) return 0;
 
-    // Las COMPRAS no entran al circuito de trueque
     if (en.concept === "COMPRA") return 0;
 
-    // Si el movimiento tiene acuerdo X a 1 → factor = 1 / X
     if (en.equivMode === "RATIO" && en.equivRatio && en.equivRatio > 0) {
       return 1 / en.equivRatio;
     }
 
-    // Usamos precio del movimiento (si tiene) o el del tipo de pallet
     const priceType = (en.unitPrice && en.unitPrice > 0)
       ? en.unitPrice
       : getPalletTypePrice(en.palletTypeId);
@@ -1849,7 +1913,6 @@
         };
       }
 
-      // Si es COMPRA → solo acumulamos cantidad y monto
       if (en.concept === "COMPRA") {
         const qty = en.qty || 0;
         const unitPrice = (en.unitPrice && en.unitPrice > 0)
@@ -1861,7 +1924,6 @@
         return;
       }
 
-      // Resto de conceptos → circuito de trueque normal
       const factor = getEntryEquivalenceFactor(en, base);
       if (!factor) return;
       const sign = en.direction === "SALIDA" ? 1 : (en.direction === "ENTRADA" ? -1 : 0);
@@ -1880,7 +1942,7 @@
       dashTableBody.innerHTML = `<tr><td colspan="5" class="empty">No hay movimientos con precios/equivalencias configurados.</td></tr>`;
     } else {
       filtered.forEach(row => {
-        const saldoRounded = Math.round(row.saldoBase); // redondeo a pallet entero
+        const saldoRounded = Math.round(row.saldoBase);
         let estadoText = "";
         let estadoClass = "";
         if (saldoRounded > 0) {
